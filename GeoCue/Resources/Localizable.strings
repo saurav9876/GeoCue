@@ -1,0 +1,64 @@
+/* RingtoneSelectionView */
+"ringtone_settings_title" = "Notification Sounds";
+"done_button" = "Done";
+"ok_button" = "OK";
+"retry_button" = "Retry";
+"error_alert_title" = "Error";
+"loading_message" = "Loading...";
+
+/* Sound Settings */
+"enable_notification_sounds" = "Enable Notification Sounds";
+"enable_sounds_description" = "Play sounds when notifications are received";
+"toggle_sounds_hint" = "Double tap to toggle notification sounds on or off";
+"sound_settings_header" = "Sound Settings";
+"sound_settings_footer" = "When enabled, notifications will play the selected ringtone";
+
+/* Ringtone Categories */
+"system_category" = "System";
+"traditional_category" = "Traditional";
+"musical_category" = "Musical";
+"ambient_category" = "Ambient";
+"dramatic_category" = "Dramatic";
+"modern_category" = "Modern";
+"classical_category" = "Classical";
+
+/* Ringtone Actions */
+"play_preview" = "Play Preview";
+"stop_preview" = "Stop Preview";
+"selected_ringtone" = "Selected";
+"preview_ringtone_hint" = "Double tap to preview this ringtone";
+"double_tap_to_select" = "Double tap to select this ringtone";
+"system_default_sound" = "System default notification sound";
+
+/* Footer */
+"ringtone_selection_footer" = "Tap any ringtone to preview and select it. Your selection will be used for all location-based notifications.";
+
+/* Ringtone Names */
+"Default" = "Default";
+"Glass" = "Glass";
+"Horn" = "Horn";
+"Bell" = "Bell";
+"Electronic" = "Electronic";
+"Anticipate" = "Anticipate";
+"Bloom" = "Bloom";
+"Calypso" = "Calypso";
+"Choo Choo" = "Choo Choo";
+"Descent" = "Descent";
+"Fanfare" = "Fanfare";
+"Ladder" = "Ladder";
+"Minuet" = "Minuet";
+"News Flash" = "News Flash";
+"Noir" = "Noir";
+"Sherwood Forest" = "Sherwood Forest";
+"Spell" = "Spell";
+"Suspense" = "Suspense";
+"Telegraph" = "Telegraph";
+"Tiptoes" = "Tiptoes";
+"Typewriters" = "Typewriters";
+"Update" = "Update";
+
+/* ContentView - Ringtone Settings Section */
+"notification_sounds_title" = "Notification Sounds";
+"ringtone_setting" = "Ringtone";
+"ringtone_disabled" = "Disabled";
+"customize_sounds_description" = "Customize notification sounds and ringtone options";

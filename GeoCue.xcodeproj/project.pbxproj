@@ -1,0 +1,578 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXContainerItemProxy section */
+		54FDA6E22E526FD50092BFD0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 54FDA6CC2E526FD40092BFD0 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 54FDA6D32E526FD40092BFD0;
+			remoteInfo = GeoCue;
+		};
+		54FDA6EC2E526FD50092BFD0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 54FDA6CC2E526FD40092BFD0 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 54FDA6D32E526FD40092BFD0;
+			remoteInfo = GeoCue;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		54FDA6D42E526FD40092BFD0 /* GeoCue.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GeoCue.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		54FDA6E12E526FD50092BFD0 /* GeoCueTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GeoCueTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		54FDA6EB2E526FD50092BFD0 /* GeoCueUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GeoCueUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		54BACF612E527873004178F7 /* Exceptions for "GeoCue" folder in "GeoCue" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 54FDA6D32E526FD40092BFD0 /* GeoCue */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		54FDA6D62E526FD40092BFD0 /* GeoCue */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				54BACF612E527873004178F7 /* Exceptions for "GeoCue" folder in "GeoCue" target */,
+			);
+			path = GeoCue;
+			sourceTree = "<group>";
+		};
+		54FDA6E42E526FD50092BFD0 /* GeoCueTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = GeoCueTests;
+			sourceTree = "<group>";
+		};
+		54FDA6EE2E526FD50092BFD0 /* GeoCueUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = GeoCueUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		54FDA6D12E526FD40092BFD0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		54FDA6DE2E526FD50092BFD0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		54FDA6E82E526FD50092BFD0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		54FDA6CB2E526FD40092BFD0 = {
+			isa = PBXGroup;
+			children = (
+				54FDA6D62E526FD40092BFD0 /* GeoCue */,
+				54FDA6E42E526FD50092BFD0 /* GeoCueTests */,
+				54FDA6EE2E526FD50092BFD0 /* GeoCueUITests */,
+				54FDA6D52E526FD40092BFD0 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		54FDA6D52E526FD40092BFD0 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				54FDA6D42E526FD40092BFD0 /* GeoCue.app */,
+				54FDA6E12E526FD50092BFD0 /* GeoCueTests.xctest */,
+				54FDA6EB2E526FD50092BFD0 /* GeoCueUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		54FDA6D32E526FD40092BFD0 /* GeoCue */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 54FDA6F52E526FD50092BFD0 /* Build configuration list for PBXNativeTarget "GeoCue" */;
+			buildPhases = (
+				54FDA6D02E526FD40092BFD0 /* Sources */,
+				54FDA6D12E526FD40092BFD0 /* Frameworks */,
+				54FDA6D22E526FD40092BFD0 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				54FDA6D62E526FD40092BFD0 /* GeoCue */,
+			);
+			name = GeoCue;
+			packageProductDependencies = (
+			);
+			productName = GeoCue;
+			productReference = 54FDA6D42E526FD40092BFD0 /* GeoCue.app */;
+			productType = "com.apple.product-type.application";
+		};
+		54FDA6E02E526FD50092BFD0 /* GeoCueTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 54FDA6F82E526FD50092BFD0 /* Build configuration list for PBXNativeTarget "GeoCueTests" */;
+			buildPhases = (
+				54FDA6DD2E526FD50092BFD0 /* Sources */,
+				54FDA6DE2E526FD50092BFD0 /* Frameworks */,
+				54FDA6DF2E526FD50092BFD0 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				54FDA6E32E526FD50092BFD0 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				54FDA6E42E526FD50092BFD0 /* GeoCueTests */,
+			);
+			name = GeoCueTests;
+			packageProductDependencies = (
+			);
+			productName = GeoCueTests;
+			productReference = 54FDA6E12E526FD50092BFD0 /* GeoCueTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		54FDA6EA2E526FD50092BFD0 /* GeoCueUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 54FDA6FB2E526FD50092BFD0 /* Build configuration list for PBXNativeTarget "GeoCueUITests" */;
+			buildPhases = (
+				54FDA6E72E526FD50092BFD0 /* Sources */,
+				54FDA6E82E526FD50092BFD0 /* Frameworks */,
+				54FDA6E92E526FD50092BFD0 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				54FDA6ED2E526FD50092BFD0 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				54FDA6EE2E526FD50092BFD0 /* GeoCueUITests */,
+			);
+			name = GeoCueUITests;
+			packageProductDependencies = (
+			);
+			productName = GeoCueUITests;
+			productReference = 54FDA6EB2E526FD50092BFD0 /* GeoCueUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		54FDA6CC2E526FD40092BFD0 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1640;
+				LastUpgradeCheck = 1640;
+				TargetAttributes = {
+					54FDA6D32E526FD40092BFD0 = {
+						CreatedOnToolsVersion = 16.4;
+					};
+					54FDA6E02E526FD50092BFD0 = {
+						CreatedOnToolsVersion = 16.4;
+						TestTargetID = 54FDA6D32E526FD40092BFD0;
+					};
+					54FDA6EA2E526FD50092BFD0 = {
+						CreatedOnToolsVersion = 16.4;
+						TestTargetID = 54FDA6D32E526FD40092BFD0;
+					};
+				};
+			};
+			buildConfigurationList = 54FDA6CF2E526FD40092BFD0 /* Build configuration list for PBXProject "GeoCue" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 54FDA6CB2E526FD40092BFD0;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 54FDA6D52E526FD40092BFD0 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				54FDA6D32E526FD40092BFD0 /* GeoCue */,
+				54FDA6E02E526FD50092BFD0 /* GeoCueTests */,
+				54FDA6EA2E526FD50092BFD0 /* GeoCueUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		54FDA6D22E526FD40092BFD0 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		54FDA6DF2E526FD50092BFD0 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		54FDA6E92E526FD50092BFD0 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		54FDA6D02E526FD40092BFD0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		54FDA6DD2E526FD50092BFD0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		54FDA6E72E526FD50092BFD0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		54FDA6E32E526FD50092BFD0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 54FDA6D32E526FD40092BFD0 /* GeoCue */;
+			targetProxy = 54FDA6E22E526FD50092BFD0 /* PBXContainerItemProxy */;
+		};
+		54FDA6ED2E526FD50092BFD0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 54FDA6D32E526FD40092BFD0 /* GeoCue */;
+			targetProxy = 54FDA6EC2E526FD50092BFD0 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		54FDA6F32E526FD50092BFD0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 4734Z88YUS;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		54FDA6F42E526FD50092BFD0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 4734Z88YUS;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		54FDA6F62E526FD50092BFD0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4734Z88YUS;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = GeoCue/Info.plist;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.pixelsbysaurav.GeoCue;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		54FDA6F72E526FD50092BFD0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4734Z88YUS;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = GeoCue/Info.plist;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.pixelsbysaurav.GeoCue;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		54FDA6F92E526FD50092BFD0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4734Z88YUS;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.pixelsbysaurav.GeoCueTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/GeoCue.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/GeoCue";
+			};
+			name = Debug;
+		};
+		54FDA6FA2E526FD50092BFD0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4734Z88YUS;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.pixelsbysaurav.GeoCueTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/GeoCue.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/GeoCue";
+			};
+			name = Release;
+		};
+		54FDA6FC2E526FD50092BFD0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4734Z88YUS;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.pixelsbysaurav.GeoCueUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = GeoCue;
+			};
+			name = Debug;
+		};
+		54FDA6FD2E526FD50092BFD0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4734Z88YUS;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.pixelsbysaurav.GeoCueUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = GeoCue;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		54FDA6CF2E526FD40092BFD0 /* Build configuration list for PBXProject "GeoCue" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				54FDA6F32E526FD50092BFD0 /* Debug */,
+				54FDA6F42E526FD50092BFD0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		54FDA6F52E526FD50092BFD0 /* Build configuration list for PBXNativeTarget "GeoCue" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				54FDA6F62E526FD50092BFD0 /* Debug */,
+				54FDA6F72E526FD50092BFD0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		54FDA6F82E526FD50092BFD0 /* Build configuration list for PBXNativeTarget "GeoCueTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				54FDA6F92E526FD50092BFD0 /* Debug */,
+				54FDA6FA2E526FD50092BFD0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		54FDA6FB2E526FD50092BFD0 /* Build configuration list for PBXNativeTarget "GeoCueUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				54FDA6FC2E526FD50092BFD0 /* Debug */,
+				54FDA6FD2E526FD50092BFD0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 54FDA6CC2E526FD40092BFD0 /* Project object */;
+}
