@@ -2,18 +2,20 @@ import Foundation
 import AVFoundation
 import AudioToolbox
 
-final class RingtoneAudioService: RingtoneAudioProtocol {
+final class RingtoneAudioService: NSObject, RingtoneAudioProtocol, AVAudioPlayerDelegate {
     
     // MARK: - Properties
     
     private let logger: LoggerProtocol
     private var audioSession: AVAudioSession?
+    private var audioPlayer: AVAudioPlayer?
     private let queue = DispatchQueue(label: "com.pixelsbysaurav.geocue.audio", qos: .userInitiated)
     
     // MARK: - Initialization
     
     init(logger: LoggerProtocol = Logger.shared) {
         self.logger = logger
+        super.init()
         setupAudioSession()
     }
     
@@ -61,9 +63,59 @@ final class RingtoneAudioService: RingtoneAudioProtocol {
     
     func stopAudioPlayback() {
         queue.async { [weak self] in
-            // System sounds are short and don't need explicit stopping
-            // This method is provided for consistency with the protocol
-            self?.logger.debug("Audio playback stop requested (system sounds stop automatically)", category: .audio)
+            self?.audioPlayer?.stop()
+            self?.audioPlayer = nil
+            self?.logger.debug("Audio playback stopped", category: .audio)
+        }
+    }
+    
+    func playCustomAudio(_ fileName: String, completion: @escaping RingtoneCompletion<Void>) {
+        queue.async { [weak self] in
+            guard let self = self else {
+                DispatchQueue.main.async {
+                    completion(.failure(.audioSessionUnavailable))
+                }
+                return
+            }
+            
+            self.logger.debug("Playing custom audio: \(fileName)", category: .audio)
+            
+            // Check if the audio file exists in the bundle
+            let resourceName = String(fileName.dropLast(4)) // Remove file extension
+            let fileExtension = String(fileName.dropFirst(resourceName.count + 1)) // Get extension
+            
+            guard let path = Bundle.main.path(forResource: resourceName, ofType: fileExtension) else {
+                self.logger.error("Custom audio file not found: \(fileName)", category: .audio)
+                DispatchQueue.main.async {
+                    completion(.failure(.soundPlaybackFailed("Audio file not found: \(fileName)")))
+                }
+                return
+            }
+            
+            do {
+                try self.configureAudioSession()
+                
+                // Create audio player for custom files
+                let url = URL(fileURLWithPath: path)
+                let audioPlayer = try AVAudioPlayer(contentsOf: url)
+                self.audioPlayer = audioPlayer
+                audioPlayer.delegate = self
+                
+                // Configure audio player
+                audioPlayer.prepareToPlay()
+                audioPlayer.play()
+                
+                self.logger.debug("Successfully started playing custom audio: \(fileName)", category: .audio)
+                DispatchQueue.main.async {
+                    completion(.success(()))
+                }
+                
+            } catch {
+                self.logger.error("Failed to play custom audio \(fileName): \(error.localizedDescription)", category: .audio)
+                DispatchQueue.main.async {
+                    completion(.failure(.soundPlaybackFailed(error.localizedDescription)))
+                }
+            }
         }
     }
     
@@ -193,5 +245,12 @@ extension RingtoneAudioService {
         default:
             break
         }
+    }
+
+    // MARK: - AVAudioPlayerDelegate
+
+    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        audioPlayer = nil
+        logger.debug("Audio playback finished", category: .audio)
     }
 }

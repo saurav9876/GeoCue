@@ -111,6 +111,8 @@ final class ServiceContainer: ServiceContainerProtocol {
                 logger: self.resolve(LoggerProtocol.self)
             )
         }
+        
+        // Note: AnyLocationManager creation is handled separately due to MainActor requirements
     }
     
     private func shouldCacheInstance<T>(_ type: T.Type) -> Bool {
@@ -119,7 +121,8 @@ final class ServiceContainer: ServiceContainerProtocol {
         case String(describing: LoggerProtocol.self),
              String(describing: RingtoneServiceProtocol.self),
              String(describing: RingtonePersistenceProtocol.self),
-             String(describing: RingtoneAudioProtocol.self):
+             String(describing: RingtoneAudioProtocol.self),
+             String(describing: AnyLocationManager.self):
             return true
         default:
             return false
@@ -136,6 +139,18 @@ final class ServiceLocator {
     // Convenience methods for common services
     static var ringtoneService: RingtoneServiceProtocol {
         shared.resolve(RingtoneServiceProtocol.self)
+    }
+    
+    @MainActor 
+    static var locationManager: AnyLocationManager {
+        // Create or return cached instance
+        if let cached = shared.resolveOptional(AnyLocationManager.self) {
+            return cached
+        } else {
+            let instance = AnyLocationManager()
+            shared.register(AnyLocationManager.self, instance: instance)
+            return instance
+        }
     }
     
     static var logger: LoggerProtocol {
@@ -235,6 +250,7 @@ final class MockRingtoneAudioService: RingtoneAudioProtocol {
     var shouldFailPlayback = false
     var playbackError: RingtoneError = .soundPlaybackFailed("Mock playback error")
     var lastPlayedSoundID: SystemSoundID?
+    var lastPlayedCustomAudio: String?
     
     func playSystemSound(_ soundID: SystemSoundID, completion: @escaping RingtoneCompletion<Void>) {
         lastPlayedSoundID = soundID
@@ -246,8 +262,19 @@ final class MockRingtoneAudioService: RingtoneAudioProtocol {
         }
     }
     
+    func playCustomAudio(_ fileName: String, completion: @escaping RingtoneCompletion<Void>) {
+        lastPlayedCustomAudio = fileName
+        
+        if shouldFailPlayback {
+            completion(.failure(playbackError))
+        } else {
+            completion(.success(()))
+        }
+    }
+    
     func stopAudioPlayback() {
         lastPlayedSoundID = nil
+        lastPlayedCustomAudio = nil
     }
     
     func configureAudioSession() throws {

@@ -402,9 +402,9 @@ struct EditLocationView: View {
     
     @State private var reminderTitle: String
     @State private var reminderType: ReminderType
-    @State private var customMessage: String
     @State private var radius: Double
     @State private var notificationMode: NotificationMode
+    @FocusState private var isTextFieldFocused: Bool
     
     enum ReminderType: String, CaseIterable {
         case arrive = "When I Arrive"
@@ -429,7 +429,6 @@ struct EditLocationView: View {
         self._location = location
         self._reminderTitle = State(initialValue: location.wrappedValue.name)
         self._reminderType = State(initialValue: location.wrappedValue.notifyOnEntry ? .arrive : .leave)
-        self._customMessage = State(initialValue: location.wrappedValue.notifyOnEntry ? location.wrappedValue.entryMessage : location.wrappedValue.exitMessage)
         self._radius = State(initialValue: location.wrappedValue.radius)
         self._notificationMode = State(initialValue: location.wrappedValue.notificationMode)
     }
@@ -443,19 +442,34 @@ struct EditLocationView: View {
                     
                     // Reminder Type
                     reminderTypeSection
+                        .onTapGesture {
+                            isTextFieldFocused = false
+                        }
                     
                     // Notification Frequency
                     notificationModeSection
+                        .onTapGesture {
+                            isTextFieldFocused = false
+                        }
                     
-                    // Custom Message
-                    customMessageSection
                     
                     // Radius Setting
                     radiusSection
+                        .onTapGesture {
+                            isTextFieldFocused = false
+                        }
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 20)
                 .padding(.bottom, 100)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    isTextFieldFocused = false
+                }
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                isTextFieldFocused = false
             }
             .navigationTitle("Edit Reminder")
             .navigationBarTitleDisplayMode(.inline)
@@ -487,6 +501,7 @@ struct EditLocationView: View {
             
             TextField("What do you want to be reminded of?", text: $reminderTitle)
                 .textFieldStyle(EditTextFieldStyle())
+                .focused($isTextFieldFocused)
         }
     }
     
@@ -508,6 +523,7 @@ struct EditLocationView: View {
         let isSelected = reminderType == type
         
         return Button(action: {
+            isTextFieldFocused = false // Dismiss keyboard
             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                 reminderType = type
             }
@@ -533,18 +549,6 @@ struct EditLocationView: View {
         .buttonStyle(PlainButtonStyle())
     }
     
-    // MARK: - Custom Message Section
-    private var customMessageSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Custom Message (Optional)")
-                .font(.system(size: 16, weight: .semibold, design: .rounded))
-                .foregroundColor(.primary)
-            
-            TextField("Add a custom reminder message...", text: $customMessage, axis: .vertical)
-                .lineLimit(2...4)
-                .textFieldStyle(EditTextFieldStyle())
-        }
-    }
     
     // MARK: - Notification Mode Section
     private var notificationModeSection: some View {
@@ -565,6 +569,7 @@ struct EditLocationView: View {
         let isSelected = notificationMode == mode
         
         return Button(action: {
+            isTextFieldFocused = false // Dismiss keyboard
             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                 notificationMode = mode
             }
@@ -625,6 +630,9 @@ struct EditLocationView: View {
             
             Slider(value: $radius, in: 50...500, step: 25)
                 .accentColor(.blue)
+                .onTapGesture {
+                    isTextFieldFocused = false
+                }
             
             HStack {
                 Text("50m")
@@ -661,12 +669,12 @@ struct EditLocationView: View {
         if reminderType == .arrive {
             updatedLocation.notifyOnEntry = true
             updatedLocation.notifyOnExit = false
-            updatedLocation.entryMessage = customMessage.isEmpty ? "Arrived at \(updatedLocation.name)" : customMessage
+            updatedLocation.entryMessage = "Reminder: \(updatedLocation.name)"
             updatedLocation.exitMessage = ""
         } else {
             updatedLocation.notifyOnEntry = false
             updatedLocation.notifyOnExit = true
-            updatedLocation.exitMessage = customMessage.isEmpty ? "Left \(updatedLocation.name)" : customMessage
+            updatedLocation.exitMessage = "Reminder: \(updatedLocation.name)"
             updatedLocation.entryMessage = ""
         }
         

@@ -73,6 +73,7 @@ protocol RingtonePersistenceProtocol: AnyObject {
 
 protocol RingtoneAudioProtocol: AnyObject {
     func playSystemSound(_ soundID: SystemSoundID, completion: @escaping RingtoneCompletion<Void>)
+    func playCustomAudio(_ fileName: String, completion: @escaping RingtoneCompletion<Void>)
     func stopAudioPlayback()
     func configureAudioSession() throws
 }
@@ -109,6 +110,22 @@ enum RingtoneType: String, CaseIterable, Codable, Identifiable {
     case brightPing = "bright_ping"
     case zenBell = "zen_bell"
     
+    
+    
+    // Custom audio files (M4A format)
+    case customChime = "custom_chime"
+    case customAlert = "custom_alert"
+    case customSuccess = "custom_success"
+    case customError = "custom_error"
+    case customAmbient = "custom_ambient"
+    
+    // BBC Audio Files
+    case bbcChime = "bbc_chime"
+    case bbcAlert = "bbc_alert"
+    case bbcSuccess = "bbc_success"
+    case bbcError = "bbc_error"
+    case bbcAmbient = "bbc_ambient"
+    
     var id: String { rawValue }
     
     var displayName: String {
@@ -123,6 +140,22 @@ enum RingtoneType: String, CaseIterable, Codable, Identifiable {
         case .softDing: return NSLocalizedString("Soft Ding", comment: "Soft ding ringtone")
         case .brightPing: return NSLocalizedString("Bright Ping", comment: "Bright ping ringtone")
         case .zenBell: return NSLocalizedString("Zen Bell", comment: "Zen bell ringtone")
+        
+        
+        
+        // Custom audio files
+        case .customChime: return NSLocalizedString("Custom Chime", comment: "Custom notification chime")
+        case .customAlert: return NSLocalizedString("Custom Alert", comment: "Custom alert sound")
+        case .customSuccess: return NSLocalizedString("Custom Success", comment: "Custom success sound")
+        case .customError: return NSLocalizedString("Custom Error", comment: "Custom error sound")
+        case .customAmbient: return NSLocalizedString("Custom Ambient", comment: "Custom ambient sound")
+        
+        // BBC Audio Files
+        case .bbcChime: return NSLocalizedString("BBC Chime", comment: "BBC notification chime")
+        case .bbcAlert: return NSLocalizedString("BBC Alert", comment: "BBC alert sound")
+        case .bbcSuccess: return NSLocalizedString("BBC Success", comment: "BBC success sound")
+        case .bbcError: return NSLocalizedString("BBC Error", comment: "BBC error sound")
+        case .bbcAmbient: return NSLocalizedString("BBC Ambient", comment: "BBC ambient sound")
         }
     }
     
@@ -138,20 +171,60 @@ enum RingtoneType: String, CaseIterable, Codable, Identifiable {
         case .softDing: return 1027
         case .brightPing: return 1033
         case .zenBell: return 1030
+        
+        
+        
+        // Custom audio files (no system sound ID, will use custom files)
+        case .customChime, .customAlert, .customSuccess, .customError, .customAmbient:
+            return nil
+        
+        // BBC audio files (no system sound ID, will use custom files)
+        case .bbcChime, .bbcAlert, .bbcSuccess, .bbcError, .bbcAmbient:
+            return nil
         }
     }
     
-    /// Audio file name for notifications (CAF format)
+    /// Audio file name for notifications (supports CAF, M4A, and MP3 formats)
     var audioFileName: String {
-        return "\(rawValue).caf"
+        switch self {
+        case .customChime, .customAlert, .customSuccess, .customError, .customAmbient:
+            return "\(rawValue).m4a"  // Custom audio files use M4A format
+        case .bbcChime, .bbcAlert, .bbcSuccess, .bbcError, .bbcAmbient:
+            return "\(rawValue).mp3"  // BBC audio files use MP3 format
+        default:
+            return "\(rawValue).caf"  // System sounds use CAF format
+        }
     }
     
     var notificationSound: UNNotificationSound {
         if self == .defaultSound {
             return UNNotificationSound.default
+        } else if systemSoundID != nil {
+            // For system sounds, use the system sound ID
+            return UNNotificationSound.default
         } else {
-            return UNNotificationSound(named: UNNotificationSoundName(rawValue: audioFileName))
+            // For custom audio files (BBC and custom sounds), we need to handle this differently
+            // iOS doesn't support custom audio files directly in UNNotificationSound
+            // We'll use the default sound for now and handle custom audio in the notification content
+            print("ℹ️ Custom audio file '\(audioFileName)' detected, using default sound for notification")
+            return UNNotificationSound.default
         }
+    }
+    
+    /// Check if this ringtone type has a custom audio file
+    var hasCustomAudioFile: Bool {
+        return systemSoundID == nil && self != .defaultSound
+    }
+    
+    /// Get the custom audio file path if available
+    var customAudioFilePath: String? {
+        guard hasCustomAudioFile else { return nil }
+        
+        let fileName = audioFileName
+        if let path = Bundle.main.path(forResource: String(fileName.dropLast(4)), ofType: String(fileName.dropFirst(fileName.count - 3))) {
+            return path
+        }
+        return nil
     }
     
     var category: RingtoneCategory {
@@ -167,6 +240,19 @@ enum RingtoneType: String, CaseIterable, Codable, Identifiable {
         case .urgentAlert:
             return .dramatic
         case .notificationTone, .brightPing:
+            return .modern
+        
+        case .customChime, .customSuccess, .customAmbient:
+            return .ambient
+        case .customAlert:
+            return .dramatic
+        case .customError:
+            return .modern
+        case .bbcChime, .bbcSuccess, .bbcAmbient:
+            return .ambient
+        case .bbcAlert:
+            return .dramatic
+        case .bbcError:
             return .modern
         }
     }

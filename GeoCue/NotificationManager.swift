@@ -94,7 +94,7 @@ class NotificationManager: NSObject, ObservableObject {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
-        content.sound = UNNotificationSound.default  // Use iOS default notification sound
+        content.sound = ringtoneService?.getNotificationSound() ?? UNNotificationSound.default
         content.badge = badge
         content.categoryIdentifier = "GEOFENCE_REMINDER"
         
@@ -136,8 +136,25 @@ class NotificationManager: NSObject, ObservableObject {
         let content = UNMutableNotificationContent()
         content.title = "Sound Test"
         content.body = "This notification should ring with sound!"
-        content.sound = UNNotificationSound.default
         content.badge = 1
+        
+        // Handle custom audio files (BBC sounds) properly
+        if let ringtoneService = ringtoneService {
+            let selectedRingtone = ringtoneService.selectedRingtone
+            
+            if selectedRingtone.hasCustomAudioFile {
+                // For custom audio files, use default sound but add custom audio info
+                content.sound = UNNotificationSound.default
+                content.userInfo["customAudioFile"] = selectedRingtone.audioFileName
+                content.userInfo["shouldPlayCustomAudio"] = true
+                logger.info("Test notification will play custom audio: \(selectedRingtone.audioFileName)", category: .notification)
+            } else {
+                // For system sounds, use normal notification sound
+                content.sound = ringtoneService.getNotificationSound() ?? UNNotificationSound.default
+            }
+        } else {
+            content.sound = UNNotificationSound.default
+        }
         
         let request = UNNotificationRequest(
             identifier: "sound-test-\(Date().timeIntervalSince1970)",
@@ -162,6 +179,33 @@ class NotificationManager: NSObject, ObservableObject {
         }
     }
     
+    // MARK: - Custom Audio Playback
+    
+    private func playCustomAudioFile(_ fileName: String) {
+        guard let ringtoneService = ringtoneService else {
+            logger.warning("No ringtone service available for custom audio playback", category: .notification)
+            return
+        }
+        
+        // Get the current selected ringtone to find the audio file
+        let selectedRingtone = ringtoneService.selectedRingtone
+        
+        // Check if the selected ringtone matches the requested audio file
+        if selectedRingtone.audioFileName == fileName {
+            // Play the custom audio using the ringtone service
+            ringtoneService.previewRingtone(selectedRingtone) { result in
+                switch result {
+                case .success:
+                    self.logger.debug("Successfully played custom audio: \(fileName)", category: .notification)
+                case .failure(let error):
+                    self.logger.error("Failed to play custom audio \(fileName): \(error.localizedDescription)", category: .notification)
+                }
+            }
+        } else {
+            logger.warning("Selected ringtone doesn't match requested audio file: \(fileName)", category: .notification)
+        }
+    }
+    
 }
 
 extension NotificationManager: UNUserNotificationCenterDelegate {
@@ -170,7 +214,22 @@ extension NotificationManager: UNUserNotificationCenterDelegate {
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        completionHandler([.banner, .sound, .badge])
+        // Check if notification has sound configured
+        var options: UNNotificationPresentationOptions = [.banner, .badge]
+        
+        if notification.request.content.sound != nil {
+            options.insert(.sound)
+        }
+        
+        if let shouldPlayCustomAudio = notification.request.content.userInfo["shouldPlayCustomAudio"] as? Bool,
+           shouldPlayCustomAudio,
+           let customAudioFile = notification.request.content.userInfo["customAudioFile"] as? String {
+            
+            // Play custom audio file
+            self.playCustomAudioFile(customAudioFile)
+        }
+        
+        completionHandler(options)
     }
     
     func userNotificationCenter(

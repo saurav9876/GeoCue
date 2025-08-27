@@ -194,7 +194,7 @@ extension Bundle {
     }
     
     var bundleIdentifier: String {
-        return Bundle.main.bundleIdentifier ?? "com.pixelsbysaurav.geocue"
+        return object(forInfoDictionaryKey: "CFBundleIdentifier") as? String ?? "com.pixelsbysaurav.geocue"
     }
 }
 

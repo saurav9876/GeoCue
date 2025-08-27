@@ -8,6 +8,7 @@ struct RingtoneSelectionView: View {
     @StateObject private var viewModel: RingtoneSelectionViewModel
     @State private var showingErrorAlert = false
     @State private var previewingRingtone: RingtoneType?
+    @State private var previewTimer: Timer?
     
     // MARK: - Initialization
     
@@ -51,6 +52,7 @@ struct RingtoneSelectionView: View {
         }
         .onDisappear {
             viewModel.onDisappear()
+            previewTimer?.invalidate()
         }
     }
     
@@ -164,6 +166,7 @@ struct RingtoneSelectionView: View {
             // Stop current preview
             viewModel.stopPreview()
             previewingRingtone = nil
+            previewTimer?.invalidate()
         } else {
             // Start new preview
             viewModel.previewRingtone(ringtone) { [ringtone] success in
@@ -171,7 +174,8 @@ struct RingtoneSelectionView: View {
                     previewingRingtone = ringtone
                     
                     // Auto-stop preview after 2 seconds
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                    previewTimer?.invalidate()
+                    previewTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { _ in
                         if previewingRingtone == ringtone {
                             previewingRingtone = nil
                         }

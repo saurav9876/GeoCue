@@ -2,10 +2,12 @@ import SwiftUI
 
 struct NotificationPreferencesView: View {
     @EnvironmentObject private var notificationEscalator: NotificationEscalator
+    @EnvironmentObject private var doNotDisturbManager: DoNotDisturbManager
     @Environment(\.dismiss) private var dismiss
     
     @State private var preferences: NotificationStylePreferences
-    @State private var showingResetAlert = false
+    @State private var showingDatePicker = false
+    @State private var customDoNotDisturbDate = Date()
     
     init() {
         // Initialize with current preferences
@@ -15,23 +17,14 @@ struct NotificationPreferencesView: View {
     var body: some View {
         NavigationView {
             Form {
-                // Default Style Section
-                defaultStyleSection
-                
-                // Custom Styles Section
-                customStylesSection
+                // Global Style Section
+                globalStyleSection
                 
                 // Sound & Haptic Section
                 soundAndHapticSection
                 
-                // Quiet Hours Section
-                quietHoursSection
-                
-                // Preview Section
-                previewSection
-                
-                // Reset Section
-                resetSection
+                // Do Not Disturb Section
+                doNotDisturbSection
             }
             .navigationTitle("Notification Styles")
             .navigationBarTitleDisplayMode(.large)
@@ -56,15 +49,15 @@ struct NotificationPreferencesView: View {
         }
     }
     
-    // MARK: - Default Style Section
-    private var defaultStyleSection: some View {
+    // MARK: - Global Style Section
+    private var globalStyleSection: some View {
         Section {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Default Style")
+                Text("Notification Style")
                     .font(.headline)
                     .foregroundColor(.primary)
                 
-                Text("This style will be used for all notifications unless you customize specific priorities below.")
+                Text("This style will be used for all your GeoCue reminders.")
                     .font(.caption)
                     .foregroundColor(.secondary)
                 
@@ -82,46 +75,12 @@ struct NotificationPreferencesView: View {
             }
             .padding(.vertical, 8)
         } header: {
-            Text("Default Notification Style")
+            Text("Choose Your Style")
         } footer: {
-            Text("Choose how most notifications should be delivered by default.")
+            Text("Select how you want to receive notifications for all your location reminders.")
         }
     }
     
-    // MARK: - Custom Styles Section
-    private var customStylesSection: some View {
-        Section {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Customize by Priority")
-                    .font(.headline)
-                    .foregroundColor(.primary)
-                
-                Text("Override the default style for specific priority levels. Leave unchecked to use the default style.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                ForEach(NotificationPriority.allCases, id: \.self) { priority in
-                    CustomStyleRow(
-                        priority: priority,
-                        currentStyle: preferences.customStyles[priority],
-                        defaultStyle: preferences.defaultStyle,
-                        onStyleChanged: { newStyle in
-                            if newStyle == preferences.defaultStyle {
-                                preferences.customStyles.removeValue(forKey: priority)
-                            } else {
-                                preferences.customStyles[priority] = newStyle
-                            }
-                        }
-                    )
-                }
-            }
-            .padding(.vertical, 8)
-        } header: {
-            Text("Priority-Specific Styles")
-        } footer: {
-            Text("Customize how different priority levels are delivered. Unchecked priorities use the default style.")
-        }
-    }
     
     // MARK: - Sound & Haptic Section
     private var soundAndHapticSection: some View {
@@ -151,111 +110,108 @@ struct NotificationPreferencesView: View {
         }
     }
     
-    // MARK: - Quiet Hours Section
-    private var quietHoursSection: some View {
+    // MARK: - Do Not Disturb Section
+    private var doNotDisturbSection: some View {
         Section {
             VStack(alignment: .leading, spacing: 16) {
-                Toggle("Enable Quiet Hours", isOn: $preferences.quietHoursEnabled)
-                    .tint(.purple)
-                
-                if preferences.quietHoursEnabled {
-                    HStack {
-                        Text("Start Time")
-                        Spacer()
-                        DatePicker("", selection: $preferences.quietHoursStart, displayedComponents: .hourAndMinute)
-                            .labelsHidden()
-                    }
+                // Current Status
+                HStack {
+                    Image(systemName: doNotDisturbManager.isCurrentlyActive ? "moon.zzz.fill" : "bell.fill")
+                        .foregroundColor(doNotDisturbManager.isCurrentlyActive ? .purple : .blue)
                     
-                    HStack {
-                        Text("End Time")
-                        Spacer()
-                        DatePicker("", selection: $preferences.quietHoursEnd, displayedComponents: .hourAndMinute)
-                            .labelsHidden()
-                    }
-                    
-                    HStack {
-                        Image(systemName: "exclamationmark.triangle")
-                            .foregroundColor(.orange)
-                        Text("Critical notifications will always override quiet hours.")
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Status")
+                            .font(.headline)
+                        Text(doNotDisturbManager.statusDescription)
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
-                    .padding(.leading, 24)
+                    
+                    Spacer()
+                    
+                    if doNotDisturbManager.isCurrentlyActive {
+                        Button("Turn Off") {
+                            doNotDisturbManager.setDoNotDisturb(.off)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
                 }
-            }
-        } header: {
-            Text("Quiet Hours")
-        } footer: {
-            Text("During quiet hours, non-critical notifications will be delayed until the end time.")
-        }
-    }
-    
-    // MARK: - Preview Section
-    private var previewSection: some View {
-        Section {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Preview Your Settings")
-                    .font(.headline)
-                    .foregroundColor(.primary)
                 
-                Text("Test how your notifications will look and feel with the current settings.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 12) {
-                    ForEach(NotificationPriority.allCases, id: \.self) { priority in
+                // Duration Options
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 8) {
+                    ForEach(DoNotDisturbDuration.allCases.filter { $0 != .off }, id: \.self) { duration in
                         Button(action: {
-                            testNotification(for: priority)
+                            if duration == .until {
+                                showingDatePicker = true
+                            } else {
+                                doNotDisturbManager.setDoNotDisturb(duration)
+                            }
                         }) {
-                            VStack(spacing: 8) {
-                                Image(systemName: priority.icon)
-                                    .font(.system(size: 24))
-                                    .foregroundColor(priority.color)
+                            VStack(spacing: 6) {
+                                Image(systemName: duration.icon)
+                                    .font(.system(size: 20))
+                                    .foregroundColor(.purple)
                                 
-                                Text("Test \(priority.displayName)")
+                                Text(duration.displayName)
                                     .font(.caption)
                                     .foregroundColor(.primary)
                             }
                             .frame(maxWidth: .infinity)
-                            .padding()
+                            .padding(.vertical, 12)
                             .background(Color(.systemGray6))
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
                         .buttonStyle(PlainButtonStyle())
                     }
                 }
             }
-            .padding(.vertical, 8)
         } header: {
-            Text("Test Notifications")
+            Text("Do Not Disturb")
         } footer: {
-            Text("Send test notifications to see how your current settings work.")
+            Text("Silence all notifications for a specific period. You can turn it off anytime.")
+        }
+        .sheet(isPresented: $showingDatePicker) {
+            doNotDisturbUntilDatePicker
         }
     }
     
-    // MARK: - Reset Section
-    private var resetSection: some View {
-        Section {
-            Button(action: {
-                showingResetAlert = true
-            }) {
-                HStack {
-                    Image(systemName: "arrow.clockwise")
-                        .foregroundColor(.red)
-                    Text("Reset to Defaults")
-                        .foregroundColor(.red)
+    // MARK: - Do Not Disturb Until Date Picker
+    private var doNotDisturbUntilDatePicker: some View {
+        NavigationView {
+            VStack(spacing: 20) {
+                Text("Do Not Disturb Until")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                
+                DatePicker(
+                    "Select Date & Time",
+                    selection: $customDoNotDisturbDate,
+                    in: Date()...,
+                    displayedComponents: [.date, .hourAndMinute]
+                )
+                .datePickerStyle(.wheel)
+                .padding()
+                
+                Spacer()
+            }
+            .padding()
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        showingDatePicker = false
+                    }
+                }
+                
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Set") {
+                        doNotDisturbManager.setDoNotDisturb(.until, customEndDate: customDoNotDisturbDate)
+                        showingDatePicker = false
+                    }
+                    .fontWeight(.semibold)
                 }
             }
-        } footer: {
-            Text("This will reset all notification preferences to their default values.")
-        }
-        .alert("Reset Preferences", isPresented: $showingResetAlert) {
-            Button("Cancel", role: .cancel) { }
-            Button("Reset", role: .destructive) {
-                resetToDefaults()
-            }
-        } message: {
-            Text("Are you sure you want to reset all notification preferences to defaults?")
         }
     }
     
@@ -263,24 +219,6 @@ struct NotificationPreferencesView: View {
     
     private func savePreferences() {
         notificationEscalator.updatePreferences(preferences)
-    }
-    
-    private func resetToDefaults() {
-        preferences = NotificationStylePreferences()
-        notificationEscalator.resetToDefaults()
-    }
-    
-    private func testNotification(for priority: NotificationPriority) {
-        let title = "Test \(priority.displayName) Notification"
-        let body = "This is a test notification with \(priority.displayName.lowercased()) priority"
-        let identifier = "test_\(priority.rawValue)_\(Date().timeIntervalSince1970)"
-        
-        notificationEscalator.sendNotification(
-            title: title,
-            body: body,
-            identifier: identifier,
-            priority: priority
-        )
     }
 }
 
@@ -323,78 +261,8 @@ struct StyleOptionCard: View {
     }
 }
 
-// MARK: - Custom Style Row
-struct CustomStyleRow: View {
-    let priority: NotificationPriority
-    let currentStyle: NotificationPriority?
-    let defaultStyle: NotificationPriority
-    let onStyleChanged: (NotificationPriority) -> Void
-    
-    private var effectiveStyle: NotificationPriority {
-        currentStyle ?? defaultStyle
-    }
-    
-    var body: some View {
-        HStack {
-            // Priority icon and name
-            HStack(spacing: 12) {
-                Image(systemName: priority.icon)
-                    .font(.system(size: 20))
-                    .foregroundColor(priority.color)
-                    .frame(width: 24)
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(priority.displayName)
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.primary)
-                    
-                    Text("Current: \(effectiveStyle.displayName)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-            
-            Spacer()
-            
-            // Style picker
-            Menu {
-                ForEach(NotificationPriority.allCases, id: \.self) { style in
-                    Button(action: {
-                        onStyleChanged(style)
-                    }) {
-                        HStack {
-                            Text(style.displayName)
-                            if style == effectiveStyle {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
-                }
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: effectiveStyle.icon)
-                        .font(.system(size: 14))
-                        .foregroundColor(effectiveStyle.color)
-                    
-                    Text(effectiveStyle.displayName)
-                        .font(.caption)
-                        .foregroundColor(.primary)
-                    
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(Color(.systemGray6))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-            }
-        }
-        .padding(.vertical, 4)
-    }
-}
-
 #Preview {
     NotificationPreferencesView()
         .environmentObject(NotificationEscalator.shared)
+        .environmentObject(DoNotDisturbManager.shared)
 }

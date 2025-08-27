@@ -7,6 +7,8 @@ struct GeoCueApp: App {
     @StateObject private var themeManager = ThemeManager()
     @StateObject private var onboardingManager = OnboardingManager.shared
     @StateObject private var notificationEscalator = NotificationEscalator.shared
+    @StateObject private var subscriptionManager = SubscriptionManager.shared
+    @StateObject private var doNotDisturbManager = DoNotDisturbManager.shared
     
     private let serviceContainer = ServiceContainer.shared
     
@@ -25,6 +27,8 @@ struct GeoCueApp: App {
                         .environmentObject(themeManager)
                         .environmentObject(onboardingManager)
                         .environmentObject(notificationEscalator)
+                        .environmentObject(subscriptionManager)
+                        .environmentObject(doNotDisturbManager)
                         .withServices(serviceContainer)
                         .preferredColorScheme(themeManager.currentTheme.colorScheme)
                         .onAppear {
@@ -37,6 +41,8 @@ struct GeoCueApp: App {
                         .environmentObject(themeManager)
                         .environmentObject(onboardingManager)
                         .environmentObject(notificationEscalator)
+                        .environmentObject(subscriptionManager)
+                        .environmentObject(doNotDisturbManager)
                         .withServices(serviceContainer)
                         .preferredColorScheme(themeManager.currentTheme.colorScheme)
                         .onAppear {
@@ -73,10 +79,14 @@ struct GeoCueApp: App {
     }
     
     private func setupAppDependencies() {
-        // Using iOS default notification sounds for production stability
+        
         
         // Initialize app services
         notificationManager.requestNotificationPermission()
+        
+        // Configure NotificationManager with RingtoneService from service container
+        let ringtoneService = serviceContainer.resolve(RingtoneServiceProtocol.self)
+        notificationManager.setRingtoneService(ringtoneService)
         
         Logger.shared.info("App dependencies configured successfully", category: .general)
     }

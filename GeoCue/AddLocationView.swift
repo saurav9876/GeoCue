@@ -27,7 +27,6 @@ struct AddLocationView: View {
     @State private var selectedLocationName = ""
     @State private var reminderType: ReminderType = .arrive
     @State private var radius: Double = 100
-    @State private var customMessage = ""
     @State private var notificationMode: NotificationMode = .normal
     @State private var showingAllFrequencyOptions = false
     @State private var mapRegion = MKCoordinateRegion(
@@ -38,10 +37,11 @@ struct AddLocationView: View {
     @State private var searchResults: [MKMapItem] = []
     @State private var showingLocationPicker = false
     @State private var currentStep = 0
+    @State private var isWaitingForLocation = false
     @FocusState private var focusedField: FocusedField?
     
     enum FocusedField: Hashable {
-        case title, locationQuery, customMessage
+        case title, locationQuery
     }
     
     enum ReminderType: String, CaseIterable {
@@ -69,7 +69,8 @@ struct AddLocationView: View {
             Color(.systemBackground)
                 .ignoresSafeArea()
                 .onTapGesture {
-                    // Safely dismiss keyboard when tapping background
+                    // Dismiss keyboard when tapping background
+                    focusedField = nil
                     Task { @MainActor in
                         UIApplication.shared.endEditing(true)
                     }
@@ -91,22 +92,35 @@ struct AddLocationView: View {
                         // Map View
                         if selectedCoordinate != nil {
                             mapSection
+                                .onTapGesture {
+                                    focusedField = nil
+                                }
                         }
                         
                         // Reminder Type
                         reminderTypeSection
+                            .onTapGesture {
+                                focusedField = nil
+                            }
+                        
+                        // Detection Radius
+                        detectionRadiusSection
+                            .onTapGesture {
+                                focusedField = nil
+                            }
                         
                         // Notification Frequency
                         notificationFrequencySection
-                        
-                        // Custom Message (Optional)
-                        customMessageSection
-                        
-                        // Save/Skip Buttons
-                        actionButtonsSection
+                            .onTapGesture {
+                                focusedField = nil
+                            }
                     }
                     .padding(.horizontal, 20)
                     .padding(.bottom, 100)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        focusedField = nil
+                    }
                 }
             }
         }
@@ -120,6 +134,24 @@ struct AddLocationView: View {
         .onAppear {
             if let currentLocation = locationManager.currentLocation {
                 mapRegion.center = currentLocation.coordinate
+            }
+        }
+        .onReceive(locationManager.$currentLocation) { location in
+            // If we get a location update and we're waiting for current location, use it
+            if let location = location, isWaitingForLocation {
+                selectedCoordinate = location.coordinate
+                selectedLocationName = "Current Location"
+                mapRegion.center = location.coordinate
+                mapRegion.span = MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+                locationQuery = "Current Location"
+                isWaitingForLocation = false
+            }
+        }
+        .onChange(of: selectedLocationName) { _, newName in
+            // Update the location query when selectedLocationName changes (from map picker)
+            if !newName.isEmpty && selectedCoordinate != nil {
+                locationQuery = newName
+                searchResults = [] // Clear search results when location is selected via map
             }
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
@@ -163,6 +195,7 @@ struct AddLocationView: View {
             
             TextField("What do you want to be reminded of?", text: $reminderTitle)
                 .textFieldStyle(ModernTextFieldStyle())
+                .focused($focusedField, equals: .title)
         }
     }
     
@@ -180,6 +213,7 @@ struct AddLocationView: View {
                         .foregroundColor(.gray)
                     
                     TextField("Search for a place or address", text: $locationQuery)
+                        .focused($focusedField, equals: .locationQuery)
                         .onChange(of: locationQuery) { _, newValue in
                             performLocationSearch()
                         }
@@ -199,11 +233,19 @@ struct AddLocationView: View {
                 )
                 
                 // Current location button
-                Button(action: useCurrentLocation) {
+                Button(action: {
+                    focusedField = nil // Dismiss keyboard
+                    useCurrentLocation()
+                }) {
                     HStack {
-                        Image(systemName: "location.fill")
-                            .foregroundColor(.blue)
-                        Text("Use Current Location")
+                        if isWaitingForLocation {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                        } else {
+                            Image(systemName: "location.fill")
+                                .foregroundColor(.blue)
+                        }
+                        Text(isWaitingForLocation ? "Getting Location..." : "Use Current Location")
                             .font(.system(size: 14, weight: .medium))
                         Spacer()
                     }
@@ -212,11 +254,13 @@ struct AddLocationView: View {
                     .background(.ultraThinMaterial)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
+                .disabled(isWaitingForLocation)
                 
                 // Search results
                 if !searchResults.isEmpty {
                     ForEach(searchResults.prefix(3), id: \.self) { result in
                         Button(action: {
+                            focusedField = nil // Dismiss keyboard
                             selectLocation(result)
                         }) {
                             HStack {
@@ -354,6 +398,7 @@ struct AddLocationView: View {
         let isSelected = reminderType == type
         
         return Button(action: {
+            focusedField = nil // Dismiss keyboard
             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                 reminderType = type
             }
@@ -388,6 +433,68 @@ struct AddLocationView: View {
         }
     }
     
+    // MARK: - Detection Radius Section
+    private var detectionRadiusSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "circle.dashed")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.blue)
+                
+                Text("Detection Radius")
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .foregroundColor(.primary)
+            }
+            
+            VStack(spacing: 16) {
+                // Radius slider
+                VStack(spacing: 8) {
+                    HStack {
+                        Text("\(Int(radius))m")
+                            .font(.system(size: 18, weight: .semibold, design: .rounded))
+                            .foregroundColor(.primary)
+                        
+                        Spacer()
+                        
+                        Text("Range: 50m - 1000m")
+                            .font(.system(size: 12, weight: .regular))
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Slider(value: $radius, in: 50...1000, step: 10)
+                        .accentColor(.blue)
+                }
+                
+                // Quick radius presets
+                HStack(spacing: 12) {
+                    ForEach([50.0, 100.0, 200.0, 500.0], id: \.self) { presetRadius in
+                        Button(action: {
+                            focusedField = nil // Dismiss keyboard
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                radius = presetRadius
+                            }
+                        }) {
+                            Text("\(Int(presetRadius))m")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(radius == presetRadius ? .white : .blue)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(radius == presetRadius ? Color.blue : Color.blue.opacity(0.1))
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+                                )
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                }
+            }
+        }
+    }
+    
     // MARK: - Notification Frequency Section
     private var notificationFrequencySection: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -404,6 +511,7 @@ struct AddLocationView: View {
             VStack(spacing: 12) {
                 // Default selected frequency
                 Button(action: {
+                    focusedField = nil // Dismiss keyboard
                     if showingAllFrequencyOptions {
                         showingAllFrequencyOptions = false
                     } else {
@@ -440,6 +548,7 @@ struct AddLocationView: View {
                     VStack(spacing: 8) {
                         ForEach(NotificationMode.allCases, id: \.self) { mode in
                             Button(action: {
+                                focusedField = nil // Dismiss keyboard
                                 notificationMode = mode
                                 showingAllFrequencyOptions = false
                             }) {
@@ -482,38 +591,6 @@ struct AddLocationView: View {
         }
     }
     
-    // MARK: - Custom Message Section
-    private var customMessageSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Custom Message (Optional)")
-                .font(.system(size: 16, weight: .semibold, design: .rounded))
-                .foregroundColor(.primary)
-            
-            TextField("Add a custom reminder message...", text: $customMessage, axis: .vertical)
-                .lineLimit(2...4)
-                .textFieldStyle(ModernTextFieldStyle())
-        }
-    }
-    
-    // MARK: - Action Buttons Section
-    private var actionButtonsSection: some View {
-        VStack(spacing: 16) {
-            // Save reminder button
-            Button("Save Reminder") {
-                saveReminder()
-            }
-            .buttonStyle(PrimaryActionButtonStyle(isEnabled: isFormValid))
-            .disabled(!isFormValid)
-            
-            // Skip for now button
-            Button("Skip for Now") {
-                dismiss()
-            }
-            .buttonStyle(SecondaryActionButtonStyle())
-        }
-        .padding(.top, 20)
-    }
-    
     // MARK: - Computed Properties
     private var isFormValid: Bool {
         !reminderTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
@@ -524,20 +601,20 @@ struct AddLocationView: View {
     private func getFrequencyDescription(for mode: NotificationMode) -> String {
         switch mode {
         case .normal:
-            return "Notify again after 30 minutes away"
+            return "30 min cooldown"
         case .quiet:
-            return "Notify again after 2 hours away"
+            return "2 hour cooldown"
         case .frequent:
-            return "Notify again after 15 minutes away"
+            return "15 min cooldown"
         case .onceDaily:
-            return "Only notify once per day"
+            return "Once per day"
         }
     }
     
     private func saveReminder() {
         guard let coordinate = selectedCoordinate else { return }
         
-        let finalMessage = customMessage.isEmpty ? "\(reminderType.rawValue) at \(selectedLocationName)" : customMessage
+        let finalMessage = "Reminder for \(reminderType.rawValue) at \(selectedLocationName)"
         
         let location = GeofenceLocation(
             name: reminderTitle.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -592,15 +669,35 @@ struct AddLocationView: View {
     }
     
     private func useCurrentLocation() {
-        guard let currentLocation = locationManager.currentLocation else { return }
-        
-        selectedCoordinate = currentLocation.coordinate
-        selectedLocationName = "Current Location"
-        mapRegion.center = currentLocation.coordinate
-        mapRegion.span = MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
-        
-        locationQuery = "Current Location"
-        searchResults = []
+        // If we don't have current location, try to request it
+        if locationManager.currentLocation == nil {
+            isWaitingForLocation = true
+            locationQuery = "Getting current location..."
+            
+            // First check if we have permission
+            if locationManager.authorizationStatus == .notDetermined {
+                locationManager.requestLocationPermission()
+            } else if locationManager.authorizationStatus == .authorizedWhenInUse || locationManager.authorizationStatus == .authorizedAlways {
+                // We have permission, request location update
+                locationManager.requestLocationUpdate()
+            } else {
+                // No permission, show alert or request permission
+                locationManager.requestLocationPermission()
+                return
+            }
+        } else {
+            // We have current location, use it immediately
+            if let currentLocation = locationManager.currentLocation {
+                selectedCoordinate = currentLocation.coordinate
+                selectedLocationName = "Current Location"
+                mapRegion.center = currentLocation.coordinate
+                mapRegion.span = MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+                
+                locationQuery = "Current Location"
+                searchResults = []
+                isWaitingForLocation = false
+            }
+        }
     }
 }
 
@@ -690,6 +787,20 @@ struct LocationPickerView: View {
                         }
                     }
                     .padding(40)
+                } else if !isMapReady {
+                    // Loading state - show progress indicator
+                    VStack(spacing: 20) {
+                        ProgressView()
+                            .scaleEffect(1.2)
+                            .progressViewStyle(CircularProgressViewStyle(tint: .blue))
+                        
+                        Text("Loading Interactive Map...")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color(.systemGray6))
+                    
                 } else if isMapReady {
                     // Conservative map implementation with minimal features
                     Map(position: $cameraPosition)
@@ -779,7 +890,39 @@ struct LocationPickerView: View {
                             // Extract region from camera position
                             let currentRegion = mapRegion
                             selectedCoordinate = currentRegion.center
-                            selectedLocationName = "Selected Location"
+                            
+                            // Perform reverse geocoding to get a proper address name
+                            let geocoder = CLGeocoder()
+                            let location = CLLocation(latitude: currentRegion.center.latitude, longitude: currentRegion.center.longitude)
+                            
+                            geocoder.reverseGeocodeLocation(location) { placemarks, error in
+                                DispatchQueue.main.async {
+                                    if let placemark = placemarks?.first {
+                                        // Try to construct a meaningful name from the placemark
+                                        var name = ""
+                                        
+                                        if let name_ = placemark.name, !name_.isEmpty {
+                                            name = name_
+                                        } else if let thoroughfare = placemark.thoroughfare {
+                                            name = thoroughfare
+                                            if let subThoroughfare = placemark.subThoroughfare {
+                                                name = "\(subThoroughfare) \(thoroughfare)"
+                                            }
+                                        } else if let locality = placemark.locality {
+                                            name = locality
+                                        } else if let administrativeArea = placemark.administrativeArea {
+                                            name = administrativeArea
+                                        } else {
+                                            name = "Selected Location"
+                                        }
+                                        
+                                        selectedLocationName = name
+                                    } else {
+                                        selectedLocationName = "Selected Location"
+                                    }
+                                }
+                            }
+                            
                             dismiss()
                         }
                         .buttonStyle(PrimaryActionButtonStyle(isEnabled: true))
@@ -823,18 +966,18 @@ struct LocationPickerView: View {
             }
             .onAppear {
                 Logger.shared.debug("LocationPickerView appeared, starting map initialization", category: .ui)
-                // Much longer delay to prevent Metal crashes
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-                    Logger.shared.debug("Showing map after delay", category: .ui)
+                // Shorter delay for better UX while still preventing Metal crashes
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    Logger.shared.debug("Showing map after optimized delay", category: .ui)
                     if !mapFailedToLoad {
-                        withAnimation(.easeInOut(duration: 1.0)) {
+                        withAnimation(.easeInOut(duration: 0.3)) {
                             isMapReady = true
                         }
                     }
                 }
                 
-                // Automatic timeout after 8 seconds
-                DispatchQueue.main.asyncAfter(deadline: .now() + 8.0) {
+                // Automatic timeout after 5 seconds (reduced from 8)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
                     if !isMapReady && !mapFailedToLoad {
                         print("🗺️ Map loading timeout, switching to fallback mode")
                         mapFailedToLoad = true

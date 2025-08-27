@@ -10,16 +10,32 @@ struct ContentView: View {
     @EnvironmentObject private var themeManager: ThemeManager
     @EnvironmentObject private var onboardingManager: OnboardingManager
     @EnvironmentObject private var notificationEscalator: NotificationEscalator
+    @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @Environment(\.ringtoneService) private var ringtoneService
-    @StateObject private var doNotDisturbManager = DoNotDisturbManager.shared
+    @State private var showingSubscription = false
     @State private var showingSettings = false
     @State private var selectedLocation: GeofenceLocation?
     @State private var selectedTab = 0
     @State private var showingAddLocation = false
-    @State private var mapRegion = MKCoordinateRegion(
-        center: CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194),
-        span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
-    )
+    @State private var mapRegion: MKCoordinateRegion
+
+    init() {
+        _mapRegion = State(initialValue: Self.initialMapRegion(locationManager: LocationManager()))
+    }
+
+    private static func initialMapRegion(locationManager: LocationManager) -> MKCoordinateRegion {
+        if let location = locationManager.currentLocation {
+            return MKCoordinateRegion(
+                center: location.coordinate,
+                span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
+            )
+        } else {
+            return MKCoordinateRegion(
+                center: CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194),
+                span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
+            )
+        }
+    }
     
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -101,7 +117,14 @@ struct ContentView: View {
             }
         }
         .onAppear {
+            Logger.shared.info("ContentView appeared", category: .general)
             setupApp()
+            if let location = locationManager.currentLocation {
+                mapRegion = MKCoordinateRegion(
+                    center: location.coordinate,
+                    span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
+                )
+            }
         }
     }
     
@@ -415,7 +438,7 @@ struct ContentView: View {
                 MapCompass()
             }
             .onAppear {
-                // Delayed initialization to prevent Metal issues
+                
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     centerMapOnCurrentLocation()
                 }
@@ -446,7 +469,7 @@ struct ContentView: View {
     private var settingsView: some View {
         ScrollView {
                             VStack(spacing: 24) {
-                    doNotDisturbSection
+                    subscriptionSection
                     notificationStylesSection
                     themeSettingsSection
                     appInfoSection
@@ -459,90 +482,6 @@ struct ContentView: View {
     }
     
     // MARK: - Settings Sections
-    
-    private var doNotDisturbSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 8) {
-                Image(systemName: "moon.zzz")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.purple)
-                
-                Text("Do Not Disturb")
-                    .font(.headline)
-                    .foregroundColor(.primary)
-            }
-            
-            VStack(spacing: 12) {
-                // Current status
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(doNotDisturbManager.statusDescription)
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.primary)
-                        
-                        if doNotDisturbManager.isCurrentlyActive {
-                            Text("Notifications are silenced")
-                                .font(.system(size: 12, weight: .regular))
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    
-                    Spacer()
-                    
-                    if doNotDisturbManager.isCurrentlyActive {
-                        Image(systemName: "moon.zzz.fill")
-                            .font(.system(size: 16))
-                            .foregroundColor(.purple)
-                    }
-                }
-                .padding()
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(doNotDisturbManager.isCurrentlyActive ? Color.purple.opacity(0.1) : Color(.systemGray6))
-                )
-                
-                // Duration options
-                LazyVGrid(columns: [
-                    GridItem(.flexible()),
-                    GridItem(.flexible())
-                ], spacing: 8) {
-                    ForEach(DoNotDisturbDuration.allCases, id: \.self) { duration in
-                        doNotDisturbButton(for: duration)
-                    }
-                }
-            }
-        }
-        .padding(.horizontal, 20)
-    }
-    
-    private func doNotDisturbButton(for duration: DoNotDisturbDuration) -> some View {
-        Button(action: {
-            if duration == .until {
-                // Show date picker (simplified for now - could expand to sheet)
-                let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
-                doNotDisturbManager.setDoNotDisturb(.until, customEndDate: tomorrow)
-            } else {
-                doNotDisturbManager.setDoNotDisturb(duration)
-            }
-        }) {
-            VStack(spacing: 6) {
-                Image(systemName: duration.icon)
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundColor(doNotDisturbManager.duration == duration ? .white : .primary)
-                
-                Text(duration.displayName)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(doNotDisturbManager.duration == duration ? .white : .primary)
-                    .lineLimit(1)
-            }
-            .frame(maxWidth: .infinity, minHeight: 60)
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(doNotDisturbManager.duration == duration ? Color.purple : Color(.systemGray6))
-            )
-        }
-        .buttonStyle(PlainButtonStyle())
-    }
     
     private var appInfoSection: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -640,6 +579,87 @@ struct ContentView: View {
         .padding(.horizontal, 20)
     }
     
+    private var subscriptionSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 8) {
+                Image(systemName: "crown.fill")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.yellow)
+                
+                Text("Premium Subscription")
+                    .font(.headline)
+                    .foregroundColor(.primary)
+            }
+            
+            VStack(spacing: 12) {
+                if subscriptionManager.isSubscribed {
+                    // Active subscription
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Active Subscription")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(.green)
+                            
+                            if let planType = subscriptionManager.currentPlanType {
+                                Text("\(planType.displayName) Plan")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(.primary)
+                            }
+                            
+                            if let expirationInfo = subscriptionManager.subscriptionExpirationInfo {
+                                Text(expirationInfo)
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        
+                        Spacer()
+                        
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(.green)
+                    }
+                    .padding()
+                    .background(Color.green.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                } else {
+                    // No subscription
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Unlock Premium Features")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(.primary)
+                            
+                            Text("Get unlimited locations, advanced notifications, and more")
+                                .font(.system(size: 13))
+                                .foregroundColor(.secondary)
+                                .lineLimit(2)
+                        }
+                        
+                        Spacer()
+                        
+                        Button("Upgrade") {
+                            showingSubscription = true
+                        }
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Color.blue)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                    .padding()
+                    .background(Color(.systemGray6))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+            }
+        }
+        .padding(.horizontal, 20)
+        .sheet(isPresented: $showingSubscription) {
+            SubscriptionView()
+        }
+    }
+    
     private var notificationStylesSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 8) {
@@ -653,6 +673,7 @@ struct ContentView: View {
             }
             
             VStack(spacing: 12) {
+                // Notification Styles
                 NavigationLink(destination: NotificationPreferencesView()) {
                     HStack {
                         Image(systemName: "bell.badge")
@@ -666,6 +687,70 @@ struct ContentView: View {
                                 .foregroundColor(.primary)
                             
                             Text("Set default styles and customize by priority")
+                                .font(.system(size: 13, weight: .regular))
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Spacer()
+                        
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.secondary)
+                    }
+                    .padding()
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color(.systemGray6))
+                    )
+                }
+                .buttonStyle(PlainButtonStyle())
+                
+                // Ringtone Selection
+                NavigationLink(destination: RingtoneSelectionView()) {
+                    HStack {
+                        Image(systemName: "music.note")
+                            .font(.system(size: 16))
+                            .foregroundColor(.green)
+                            .frame(width: 24)
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Choose Notification Sounds")
+                                .font(.system(size: 15, weight: .medium))
+                                .foregroundColor(.primary)
+                            
+                            Text("Select from system sounds or BBC audio files")
+                                .font(.system(size: 13, weight: .regular))
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Spacer()
+                        
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.secondary)
+                    }
+                    .padding()
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color(.systemGray6))
+                    )
+                }
+                .buttonStyle(PlainButtonStyle())
+                
+                // Notification Diagnostics
+                NavigationLink(destination: NotificationDiagnosticsView()) {
+                    HStack {
+                        Image(systemName: "stethoscope")
+                            .font(.system(size: 16))
+                            .foregroundColor(.orange)
+                            .frame(width: 24)
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Notification Diagnostics")
+                                .font(.system(size: 15, weight: .medium))
+                                .foregroundColor(.primary)
+                            
+                            Text("Test notifications and check permissions")
                                 .font(.system(size: 13, weight: .regular))
                                 .foregroundColor(.secondary)
                         }
@@ -899,13 +984,15 @@ struct ContentView: View {
     private func setupApp() {
         updateMapToUserLocation()
     }
+    
 }
 
 
-// MARK: - Reminder Card View
+// MARK: - Simple Location Row View
 struct SimpleLocationRowView: View {
     let location: GeofenceLocation
     let onTap: () -> Void
+    
     @EnvironmentObject private var locationManager: LocationManager
     @State private var locationName: String = ""
     
@@ -915,7 +1002,10 @@ struct SimpleLocationRowView: View {
         }
         .buttonStyle(PlainButtonStyle())
         .onAppear {
-            fetchLocationName()
+            let location = CLLocation(latitude: location.latitude, longitude: location.longitude)
+            LocationNameCache.shared.locationName(for: location) { name in
+                locationName = name
+            }
         }
     }
     
@@ -1052,36 +1142,7 @@ struct SimpleLocationRowView: View {
             .stroke(location.isEnabled ? Color.blue.opacity(0.1) : Color.gray.opacity(0.1), lineWidth: 1)
     }
     
-    private func fetchLocationName() {
-        let geocoder = CLGeocoder()
-        let coordinate = CLLocation(latitude: location.latitude, longitude: location.longitude)
-        
-        geocoder.reverseGeocodeLocation(coordinate) { placemarks, error in
-            DispatchQueue.main.async {
-                if let placemark = placemarks?.first {
-                    var components: [String] = []
-                    
-                    if let name = placemark.name {
-                        components.append(name)
-                    }
-                    if let locality = placemark.locality {
-                        components.append(locality)
-                    }
-                    if let administrativeArea = placemark.administrativeArea {
-                        components.append(administrativeArea)
-                    }
-                    
-                    if components.isEmpty {
-                        locationName = "Unknown Location"
-                    } else {
-                        locationName = components.joined(separator: ", ")
-                    }
-                } else {
-                    locationName = "Unknown Location"
-                }
-            }
-        }
-    }
+    
     
     private func frequencyText(for location: GeofenceLocation) -> String {
         switch location.notificationMode {

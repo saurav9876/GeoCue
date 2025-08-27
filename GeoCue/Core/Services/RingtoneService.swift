@@ -141,9 +141,25 @@ final class RingtoneService: ObservableObject, RingtoneServiceProtocol {
                 }
             }
         } else {
-            let error = RingtoneError.invalidConfiguration
-            logger.error("Invalid ringtone configuration for \(ringtone.displayName)", category: .service)
-            completion(.failure(error))
+            // Handle custom audio files (BBC and custom sounds)
+            let fileName = ringtone.audioFileName
+            if fileName.hasSuffix(".mp3") || fileName.hasSuffix(".m4a") {
+                // Play custom audio file
+                audioService.playCustomAudio(fileName) { [weak self] result in
+                    switch result {
+                    case .success:
+                        self?.logger.debug("Successfully previewed custom audio: \(ringtone.displayName)", category: .service)
+                        completion(.success(()))
+                    case .failure(let error):
+                        self?.logger.error("Failed to preview custom audio \(ringtone.displayName): \(error.localizedDescription)", category: .service)
+                        completion(.failure(error))
+                    }
+                }
+            } else {
+                let error = RingtoneError.invalidConfiguration
+                logger.error("Invalid ringtone configuration for \(ringtone.displayName)", category: .service)
+                completion(.failure(error))
+            }
         }
     }
     
@@ -164,9 +180,27 @@ final class RingtoneService: ObservableObject, RingtoneServiceProtocol {
     
     func validateConfiguration() -> RingtoneResult<Void> {
         // Validate that the selected ringtone is still available
-        if selectedRingtone != .defaultSound, selectedRingtone.systemSoundID == nil {
-            logger.warning("Selected ringtone \(selectedRingtone.displayName) is no longer available", category: .service)
-            return .failure(.invalidConfiguration)
+        if selectedRingtone != .defaultSound {
+            if let _ = selectedRingtone.systemSoundID {
+                // System sound is available
+            } else {
+                // Check if it's a custom audio file
+                let fileName = selectedRingtone.audioFileName
+                if fileName.hasSuffix(".mp3") || fileName.hasSuffix(".m4a") {
+                    // Custom audio file - check if it exists in the bundle
+                    let resourceName = String(fileName.dropLast(4)) // Remove file extension
+                    let fileExtension = String(fileName.dropFirst(resourceName.count + 1)) // Get extension
+                    if let _ = Bundle.main.path(forResource: resourceName, ofType: fileExtension) {
+                        // Custom audio file exists
+                    } else {
+                        logger.warning("Selected custom ringtone \(selectedRingtone.displayName) file not found: \(fileName)", category: .service)
+                        return .failure(.invalidConfiguration)
+                    }
+                } else {
+                    logger.warning("Selected ringtone \(selectedRingtone.displayName) is no longer available", category: .service)
+                    return .failure(.invalidConfiguration)
+                }
+            }
         }
         
         // Validate settings structure
@@ -276,7 +310,7 @@ final class RingtoneService: ObservableObject, RingtoneServiceProtocol {
     
     private func handleConfigurationError(_ error: RingtoneError) {
         logger.warning("Configuration error detected, attempting to recover", category: .service)
-        
+
         // Reset to default configuration
         let defaultSettings = RingtoneSettings()
         saveSettings(defaultSettings) { [weak self] result in
@@ -292,23 +326,66 @@ final class RingtoneService: ObservableObject, RingtoneServiceProtocol {
             }
         }
     }
-}
 
-// MARK: - Convenience Extensions
+    private var _availableRingtones: [RingtoneType]?
 
-extension RingtoneService {
-    
     var availableRingtones: [RingtoneType] {
-        return RingtoneType.allCases.filter { ringtone in
-            ringtone == .defaultSound || ringtone.systemSoundID != nil
+        if _availableRingtones == nil {
+            _availableRingtones = RingtoneType.allCases.filter { ringtone in
+                if ringtone == .defaultSound {
+                    return true
+                }
+
+                // Include system sounds
+                if let _ = ringtone.systemSoundID {
+                    return true
+                }
+
+                // Include custom audio files (BBC and custom sounds)
+                let fileName = ringtone.audioFileName
+                if fileName.hasSuffix(".m4a") || fileName.hasSuffix(".mp3") {
+                    // Check if the audio file exists in the bundle
+                    let resourceName = String(fileName.dropLast(4)) // Remove file extension
+                    let fileExtension = String(fileName.dropFirst(resourceName.count + 1)) // Get extension
+                    if let _ = Bundle.main.path(forResource: resourceName, ofType: fileExtension) {
+                        return true
+                    }
+                }
+
+                return false
+            }
         }
+        return _availableRingtones!
     }
-    
+
     var ringtonesByCategory: [RingtoneCategory: [RingtoneType]] {
         return Dictionary(grouping: availableRingtones) { $0.category }
     }
-    
+
     func isRingtoneAvailable(_ ringtone: RingtoneType) -> Bool {
-        return ringtone == .defaultSound || ringtone.systemSoundID != nil
+        if ringtone == .defaultSound {
+            return true
+        }
+        
+        if let _ = ringtone.systemSoundID {
+            return true
+        }
+        
+        // Check if custom audio file exists
+        let fileName = ringtone.audioFileName
+        if fileName.hasSuffix(".m4a") || fileName.hasSuffix(".mp3") {
+            let resourceName = String(fileName.dropLast(4)) // Remove file extension
+            let fileExtension = String(fileName.dropFirst(resourceName.count + 1)) // Get extension
+            if let _ = Bundle.main.path(forResource: resourceName, ofType: fileExtension) {
+                return true
+            }
+        } else if fileName.hasSuffix(".caf") {
+            // Check if custom CAF file exists for WhatsApp-style sounds
+            if let _ = Bundle.main.path(forResource: String(fileName.dropLast(4)), ofType: "caf") {
+                return true
+            }
+        }
+        
+        return false
     }
 }
