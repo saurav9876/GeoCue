@@ -75,25 +75,12 @@ enum GeofenceEvent {
 
 enum NotificationMode: String, CaseIterable, Codable {
     case normal = "normal"
-    case quiet = "quiet"
-    case frequent = "frequent"
-    case onceDaily = "once_daily"
     
     var displayName: String {
-        switch self {
-        case .normal: return "Normal (30 min cooldown)"
-        case .quiet: return "Quiet (2 hour cooldown)"
-        case .frequent: return "Frequent (15 min cooldown)"
-        case .onceDaily: return "Once per day"
-        }
+        return "Normal"
     }
     
     var cooldownPeriod: TimeInterval {
-        switch self {
-        case .normal: return 30 * 60 // 30 minutes
-        case .quiet: return 2 * 60 * 60 // 2 hours
-        case .frequent: return 15 * 60 // 15 minutes
-        case .onceDaily: return 24 * 60 * 60 // 24 hours
-        }
+        return 30 * 60 // 30 minutes
     }
 }

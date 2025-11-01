@@ -29,7 +29,7 @@ struct PricingDetailView: View {
             .navigationTitle("Pricing Details")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") {
                         dismiss()
                     }
@@ -398,4 +398,9 @@ struct FAQRow: View {
     PricingDetailView()
         .environmentObject(SubscriptionManager.shared)
 }
+
+
+
+
+
 

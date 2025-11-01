@@ -5,7 +5,6 @@ import SwiftUI
 @MainActor
 class LocationManager: NSObject, ObservableObject {
     private let locationManager = CLLocationManager()
-    private let notificationManager = NotificationManager()
     private let notificationController = GeofenceNotificationController()
     
     @Published var authorizationStatus: CLAuthorizationStatus = .notDetermined
@@ -18,7 +17,7 @@ class LocationManager: NSObject, ObservableObject {
     override init() {
         super.init()
         setupLocationManager()
-        setupNotificationManager()
+        // NotificationService is now self-contained and doesn't require configuration
     }
     
     private func setupLocationManager() {
@@ -35,14 +34,16 @@ class LocationManager: NSObject, ObservableObject {
         
         // Update location services status in background to avoid UI blocking
         updateLocationServicesStatus()
+
+        // If the app already has Always authorization at startup, ensure any
+        // previously saved geofences are registered so background events fire.
+        // This covers the case where authorization did not "change" this launch.
+        if locationManager.authorizationStatus == .authorizedAlways {
+            setupExistingGeofences()
+        }
     }
     
-    private func setupNotificationManager() {
-        // Configure notification manager with ringtone service
-        let ringtoneService = ServiceLocator.ringtoneService
-        notificationManager.setRingtoneService(ringtoneService)
-        Logger.shared.info("NotificationManager configured", category: .location)
-    }
+    private func setupNotificationManager() { }
     
     // Public method to refresh location services status
     func refreshLocationServicesStatus() {
@@ -187,10 +188,21 @@ class LocationManager: NSObject, ObservableObject {
             Logger.shared.warning("Cannot add geofence without Always authorization", category: .location)
             return
         }
-        
+
         geofenceLocations.append(location)
         saveGeofenceLocations()
-        
+
+        // Respect enabled state and iOS 20-region limit
+        guard location.isEnabled else {
+            Logger.shared.info("Geofence saved but not monitored (disabled): \(location.name)", category: .location)
+            return
+        }
+
+        if locationManager.monitoredRegions.count >= 20 {
+            Logger.shared.error("Cannot start monitoring more than 20 regions", category: .location)
+            return
+        }
+
         let region = CLCircularRegion(
             center: CLLocationCoordinate2D(latitude: location.latitude, longitude: location.longitude),
             radius: location.radius,
@@ -198,7 +210,7 @@ class LocationManager: NSObject, ObservableObject {
         )
         region.notifyOnEntry = location.notifyOnEntry
         region.notifyOnExit = location.notifyOnExit
-        
+
         locationManager.startMonitoring(for: region)
     }
     
@@ -267,7 +279,7 @@ class LocationManager: NSObject, ObservableObject {
     }
     
     private func setupExistingGeofences() {
-        for location in geofenceLocations {
+        for location in geofenceLocations where location.isEnabled {
             let region = CLCircularRegion(
                 center: CLLocationCoordinate2D(latitude: location.latitude, longitude: location.longitude),
                 radius: location.radius,
@@ -360,80 +372,52 @@ extension LocationManager: CLLocationManagerDelegate {
     
     nonisolated func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
         Task { @MainActor in
+            print("🚪 LocationManager: didEnterRegion called for \(region.identifier)")
+            
             guard let geofenceLocation = geofenceLocations.first(where: { $0.id.uuidString == region.identifier }) else { 
                 Logger.shared.warning("No geofence location found for region: \(region.identifier)", category: .location)
+                print("❌ LocationManager: No matching geofence found for region \(region.identifier)")
                 return 
             }
             
             Logger.shared.info("User entered region: \(geofenceLocation.name)", category: .location)
+            print("📍 LocationManager: User entered \(geofenceLocation.name) (enabled: \(geofenceLocation.isEnabled), notifyOnEntry: \(geofenceLocation.notifyOnEntry))")
             
             // Check if we should send a notification using the smart controller
             if notificationController.shouldNotify(for: geofenceLocation, event: .entry) {
-                // Check Do Not Disturb status
-                if DoNotDisturbManager.shared.shouldSuppressNotification() {
-                    Logger.shared.info("Suppressing entry notification due to Do Not Disturb: \(geofenceLocation.name)", category: .location)
-                    return
-                }
-                
-                let message = geofenceLocation.entryMessage.isEmpty ? 
-                    "You've arrived at \(geofenceLocation.name)" : geofenceLocation.entryMessage
-                
-                // Use global notification style for all reminders
-                let priority = NotificationEscalator.shared.preferences.defaultStyle
-                
-                // Debug: Log notification attempt
                 Logger.shared.info("Attempting to send entry notification for: \(geofenceLocation.name)", category: .location)
-                
-                // Use the notification escalator for smart delivery
-                NotificationEscalator.shared.sendNotification(
-                    title: "GeoCue Reminder",
-                    body: message,
-                    identifier: "entry-\(geofenceLocation.id.uuidString)",
-                    priority: priority
-                )
-                
-                // Record that notification was sent
-                notificationController.recordNotificationSent(for: geofenceLocation.id)
+                if NotificationService.shared.postGeofenceNotification(event: .entry, location: geofenceLocation) {
+                    // Record that notification was actually enqueued
+                    notificationController.recordNotificationSent(for: geofenceLocation.id)
+                } else {
+                    Logger.shared.info("Notification service throttled entry notification for: \(geofenceLocation.name)", category: .location)
+                }
             }
         }
     }
     
     nonisolated func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
         Task { @MainActor in
+            print("🚪 LocationManager: didExitRegion called for \(region.identifier)")
+            
             guard let geofenceLocation = geofenceLocations.first(where: { $0.id.uuidString == region.identifier }) else { 
                 Logger.shared.warning("No geofence location found for region: \(region.identifier)", category: .location)
+                print("❌ LocationManager: No matching geofence found for region \(region.identifier)")
                 return 
             }
             
             Logger.shared.info("User exited region: \(geofenceLocation.name)", category: .location)
+            print("📍 LocationManager: User exited \(geofenceLocation.name) (enabled: \(geofenceLocation.isEnabled), notifyOnExit: \(geofenceLocation.notifyOnExit))")
             
             // Check if we should send a notification using the smart controller
             if notificationController.shouldNotify(for: geofenceLocation, event: .exit) {
-                // Check Do Not Disturb status
-                if DoNotDisturbManager.shared.shouldSuppressNotification() {
-                    Logger.shared.info("Suppressing exit notification due to Do Not Disturb: \(geofenceLocation.name)", category: .location)
-                    return
-                }
-                
-                let message = geofenceLocation.exitMessage.isEmpty ? 
-                    "You've left \(geofenceLocation.name)" : geofenceLocation.exitMessage
-                
-                // Use global notification style for all reminders
-                let priority = NotificationEscalator.shared.preferences.defaultStyle
-                
-                // Debug: Log notification attempt
                 Logger.shared.info("Attempting to send exit notification for: \(geofenceLocation.name)", category: .location)
-                
-                // Use the notification escalator for smart delivery
-                NotificationEscalator.shared.sendNotification(
-                    title: "GeoCue Reminder",
-                    body: message,
-                    identifier: "exit-\(geofenceLocation.id.uuidString)",
-                    priority: priority
-                )
-                
-                // Record that notification was sent
-                notificationController.recordNotificationSent(for: geofenceLocation.id)
+                if NotificationService.shared.postGeofenceNotification(event: .exit, location: geofenceLocation) {
+                    // Record that notification was actually enqueued
+                    notificationController.recordNotificationSent(for: geofenceLocation.id)
+                } else {
+                    Logger.shared.info("Notification service throttled exit notification for: \(geofenceLocation.name)", category: .location)
+                }
             }
         }
     }

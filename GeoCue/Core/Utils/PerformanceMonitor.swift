@@ -179,32 +179,7 @@ func measurePerformanceAsync<T>(_ identifier: String, operation: () async throws
 }
 
 // MARK: - Memory Management Extensions
-
-extension RingtoneService {
-    
-    func optimizeMemoryUsage() {
-        // Clear any cached data that can be regenerated
-        Logger.shared.debug("Optimizing ringtone service memory usage", category: .service)
-        
-        // Stop any ongoing audio operations
-        stopPreview()
-        
-        // Trigger garbage collection if needed
-        if AppConfiguration.Environment.current.isDevelopment {
-            Logger.shared.debug("Memory optimization completed", category: .service)
-        }
-    }
-}
-
-extension RingtoneAudioService {
-    
-    func handleMemoryWarning() {
-        stopAudioPlayback()
-        
-        // Release any cached audio resources
-        Logger.shared.debug("Audio service handled memory warning", category: .audio)
-    }
-}
+// Ringtone service extensions removed in minimal mode
 
 // MARK: - Cache Management
 

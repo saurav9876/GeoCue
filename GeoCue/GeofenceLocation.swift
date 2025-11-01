@@ -4,6 +4,7 @@ import CoreLocation
 struct GeofenceLocation: Identifiable, Codable, Equatable {
     let id: UUID
     var name: String
+    var address: String
     var latitude: Double
     var longitude: Double
     var radius: Double
@@ -18,6 +19,7 @@ struct GeofenceLocation: Identifiable, Codable, Equatable {
     init(
         id: UUID = UUID(),
         name: String,
+        address: String = "",
         latitude: Double,
         longitude: Double,
         radius: Double = 100.0,
@@ -31,6 +33,7 @@ struct GeofenceLocation: Identifiable, Codable, Equatable {
     ) {
         self.id = id
         self.name = name
+        self.address = address
         self.latitude = latitude
         self.longitude = longitude
         self.radius = radius

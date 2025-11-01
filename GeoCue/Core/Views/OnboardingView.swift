@@ -1,14 +1,17 @@
 import SwiftUI
+import UserNotifications
+import UIKit
 
 struct OnboardingView: View {
     @EnvironmentObject private var onboardingManager: OnboardingManager
-    @EnvironmentObject private var locationManager: LocationManager
-    @EnvironmentObject private var notificationManager: NotificationManager
+    @EnvironmentObject private var locationManager: AnyLocationManager
+    // NotificationService handles permissions centrally
     
     @State private var currentStepIndex = 0
     @State private var showingLocationPermission = false
     @State private var showingNotificationPermission = false
     @State private var animateContent = false
+    @State private var notificationAuthStatus: UNAuthorizationStatus = .notDetermined
     
     private var currentStep: OnboardingStep {
         OnboardingStep.allCases[currentStepIndex]
@@ -43,6 +46,19 @@ struct OnboardingView: View {
         .onAppear {
             withAnimation(.easeInOut(duration: 0.6)) {
                 animateContent = true
+            }
+            refreshNotificationStatus()
+        }
+        .onChange(of: locationManager.authorizationStatus) { _, newStatus in
+            // Auto-advance when Always is granted on the location step
+            if currentStep == .locationPermission, newStatus == .authorizedAlways {
+                nextStep()
+            }
+        }
+        .onChange(of: notificationAuthStatus) { _, newStatus in
+            // Auto-advance when notifications are granted on that step
+            if currentStep == .notifications, newStatus == .authorized {
+                nextStep()
             }
         }
         .sheet(isPresented: $showingLocationPermission) {
@@ -166,33 +182,50 @@ struct OnboardingView: View {
     
     // MARK: - Location Permission Section
     private var locationPermissionSection: some View {
-        VStack(spacing: 16) {
-            Button(action: {
-                showingLocationPermission = true
-            }) {
-                HStack {
-                    Image(systemName: "location.fill")
-                        .font(.system(size: 18, weight: .medium))
-                    Text("Grant Location Access")
-                        .font(.system(size: 18, weight: .semibold))
+        VStack(spacing: 12) {
+            if locationManager.authorizationStatus == .authorizedAlways {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
+                    Text("Location access granted (Always)").font(.system(size: 16, weight: .semibold))
                 }
-                .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
-                .frame(height: 56)
-                .background(
-                    LinearGradient(
-                        gradient: Gradient(colors: [currentStep.iconColor, currentStep.iconColor.opacity(0.8)]),
-                        startPoint: .leading,
-                        endPoint: .trailing
+                .padding(.vertical, 12)
+                .background(Color.green.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+            } else {
+                Button(action: { showingLocationPermission = true }) {
+                    HStack {
+                        Image(systemName: "location.fill").font(.system(size: 18, weight: .medium))
+                        Text("Grant Location Access").font(.system(size: 18, weight: .semibold))
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 56)
+                    .background(
+                        LinearGradient(
+                            gradient: Gradient(colors: [currentStep.iconColor, currentStep.iconColor.opacity(0.8)]),
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
                     )
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                .shadow(color: currentStep.iconColor.opacity(0.3), radius: 8, x: 0, y: 4)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .shadow(color: currentStep.iconColor.opacity(0.3), radius: 8, x: 0, y: 4)
+                }
+
+                if locationManager.authorizationStatus == .authorizedWhenInUse || locationManager.authorizationStatus == .denied {
+                    Button("Open Settings") {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.blue)
+                }
+
+                Text("Required for geofencing to work")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.secondary)
             }
-            
-            Text("Required for geofencing to work")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.secondary)
         }
         .opacity(animateContent ? 1.0 : 0.0)
         .offset(y: animateContent ? 0 : 40)
@@ -201,33 +234,50 @@ struct OnboardingView: View {
     
     // MARK: - Notification Permission Section
     private var notificationPermissionSection: some View {
-        VStack(spacing: 16) {
-            Button(action: {
-                showingNotificationPermission = true
-            }) {
-                HStack {
-                    Image(systemName: "bell.badge.fill")
-                        .font(.system(size: 18, weight: .medium))
-                    Text("Enable Notifications")
-                        .font(.system(size: 18, weight: .semibold))
+        VStack(spacing: 12) {
+            if notificationAuthStatus == .authorized {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
+                    Text("Notifications enabled").font(.system(size: 16, weight: .semibold))
                 }
-                .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
-                .frame(height: 56)
-                .background(
-                    LinearGradient(
-                        gradient: Gradient(colors: [currentStep.iconColor, currentStep.iconColor.opacity(0.8)]),
-                        startPoint: .leading,
-                        endPoint: .trailing
+                .padding(.vertical, 12)
+                .background(Color.green.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+            } else {
+                Button(action: { showingNotificationPermission = true }) {
+                    HStack {
+                        Image(systemName: "bell.badge.fill").font(.system(size: 18, weight: .medium))
+                        Text("Enable Notifications").font(.system(size: 18, weight: .semibold))
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 56)
+                    .background(
+                        LinearGradient(
+                            gradient: Gradient(colors: [currentStep.iconColor, currentStep.iconColor.opacity(0.8)]),
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
                     )
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                .shadow(color: currentStep.iconColor.opacity(0.3), radius: 8, x: 0, y: 4)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .shadow(color: currentStep.iconColor.opacity(0.3), radius: 8, x: 0, y: 4)
+                }
+
+                if notificationAuthStatus == .denied {
+                    Button("Open Settings") {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.blue)
+                }
+
+                Text("Get reminded when you arrive or leave")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.secondary)
             }
-            
-            Text("Get reminded when you arrive or leave")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.secondary)
         }
         .opacity(animateContent ? 1.0 : 0.0)
         .offset(y: animateContent ? 0 : 40)
@@ -326,7 +376,7 @@ struct OnboardingView: View {
 // MARK: - Location Permission Sheet
 struct LocationPermissionSheet: View {
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var locationManager: LocationManager
+    @EnvironmentObject private var locationManager: AnyLocationManager
     
     var body: some View {
         NavigationView {
@@ -378,7 +428,7 @@ struct LocationPermissionSheet: View {
             .navigationTitle("Location Permission")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button("Skip") {
                         dismiss()
                     }
@@ -391,7 +441,6 @@ struct LocationPermissionSheet: View {
 // MARK: - Notification Permission Sheet
 struct NotificationPermissionSheet: View {
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var notificationManager: NotificationManager
     
     var body: some View {
         NavigationView {
@@ -416,7 +465,13 @@ struct NotificationPermissionSheet: View {
                 
                 VStack(spacing: 16) {
                     Button(action: {
-                        notificationManager.requestNotificationPermission()
+                        NotificationService.shared.requestAuthorization { _ in
+                            UNUserNotificationCenter.current().getNotificationSettings { settings in
+                                DispatchQueue.main.async {
+                                    // No direct binding here; OnboardingView listens on status refresh
+                                }
+                            }
+                        }
                         dismiss()
                     }) {
                         Text("Enable Notifications")
@@ -443,7 +498,7 @@ struct NotificationPermissionSheet: View {
             .navigationTitle("Notifications")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button("Skip") {
                         dismiss()
                     }
@@ -456,6 +511,16 @@ struct NotificationPermissionSheet: View {
 #Preview {
     OnboardingView()
         .environmentObject(OnboardingManager.shared)
-        .environmentObject(LocationManager())
-        .environmentObject(NotificationManager())
+        .environmentObject(ServiceLocator.locationManager)
+}
+
+// MARK: - Helpers
+private extension OnboardingView {
+    func refreshNotificationStatus() {
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            DispatchQueue.main.async {
+                self.notificationAuthStatus = settings.authorizationStatus
+            }
+        }
+    }
 }

@@ -25,7 +25,7 @@ struct BenefitsDetailView: View {
             .navigationTitle("Premium Benefits")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") {
                         dismiss()
                     }
@@ -246,4 +246,9 @@ struct ComparisonRow: View {
 #Preview {
     BenefitsDetailView()
 }
+
+
+
+
+
 

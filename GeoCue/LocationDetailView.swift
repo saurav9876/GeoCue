@@ -2,7 +2,7 @@ import SwiftUI
 import MapKit
 
 struct LocationDetailView: View {
-    @EnvironmentObject private var locationManager: LocationManager
+    @EnvironmentObject private var locationManager: AnyLocationManager
     @Environment(\.dismiss) private var dismiss
     
     @State private var location: GeofenceLocation
@@ -48,7 +48,7 @@ struct LocationDetailView: View {
             .navigationTitle("Reminder Details")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") {
                         dismiss()
                     }
@@ -397,18 +397,31 @@ struct MapAnnotationItem: Identifiable {
 
 struct EditLocationView: View {
     @Binding var location: GeofenceLocation
-    @EnvironmentObject private var locationManager: LocationManager
+    @EnvironmentObject private var locationManager: AnyLocationManager
     @Environment(\.dismiss) private var dismiss
     
     @State private var reminderTitle: String
     @State private var reminderType: ReminderType
     @State private var radius: Double
-    @State private var notificationMode: NotificationMode
-    @FocusState private var isTextFieldFocused: Bool
+    @State private var isActive: Bool
+    @State private var locationQuery: String = ""
+    @State private var selectedCoordinate: CLLocationCoordinate2D?
+    @State private var selectedLocationName: String = ""
+    @State private var mapRegion: MKCoordinateRegion
+    @State private var cameraPosition: MapCameraPosition
+    @State private var isSearching = false
+    @State private var searchResults: [MKMapItem] = []
+    @State private var showingLocationPicker = false
+    @State private var searchTask: Task<Void, Never>?
+    @FocusState private var focusedField: FocusedField?
+    
+    enum FocusedField: Hashable {
+        case title, locationQuery
+    }
     
     enum ReminderType: String, CaseIterable {
-        case arrive = "When I Arrive"
-        case leave = "When I Leave"
+        case arrive = "On Entry"
+        case leave = "On Exit"
         
         var icon: String {
             switch self {
@@ -419,7 +432,7 @@ struct EditLocationView: View {
         
         var color: Color {
             switch self {
-            case .arrive: return .blue
+            case .arrive: return .green
             case .leave: return .orange
             }
         }
@@ -430,240 +443,557 @@ struct EditLocationView: View {
         self._reminderTitle = State(initialValue: location.wrappedValue.name)
         self._reminderType = State(initialValue: location.wrappedValue.notifyOnEntry ? .arrive : .leave)
         self._radius = State(initialValue: location.wrappedValue.radius)
-        self._notificationMode = State(initialValue: location.wrappedValue.notificationMode)
+        self._isActive = State(initialValue: location.wrappedValue.isEnabled)
+        
+        let coord = location.wrappedValue.coordinate
+        let region = MKCoordinateRegion(
+            center: coord,
+            span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+        )
+        self._mapRegion = State(initialValue: region)
+        self._cameraPosition = State(initialValue: .region(region))
+        self._selectedCoordinate = State(initialValue: coord)
+        self._selectedLocationName = State(initialValue: location.wrappedValue.address.isEmpty ? location.wrappedValue.name : location.wrappedValue.address)
+        self._locationQuery = State(initialValue: location.wrappedValue.address.isEmpty ? location.wrappedValue.name : location.wrappedValue.address)
     }
     
     var body: some View {
         NavigationView {
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 24) {
-                    // Title Field
-                    titleSection
-                    
-                    // Reminder Type
-                    reminderTypeSection
-                        .onTapGesture {
-                            isTextFieldFocused = false
+            ZStack {
+                // Clean background
+                Color(.systemBackground)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        focusedField = nil
+                        Task { @MainActor in
+                            UIApplication.shared.endEditing(true)
                         }
-                    
-                    // Notification Frequency
-                    notificationModeSection
-                        .onTapGesture {
-                            isTextFieldFocused = false
+                    }
+                
+                VStack(spacing: 0) {
+                    // Content
+                    ScrollView(showsIndicators: false) {
+                        VStack(spacing: 32) {
+                            // REMINDER Section
+                            reminderSection
+                            
+                            // TRIGGER Section
+                            triggerSection
+                            
+                            // LOCATION Section
+                            locationSection
                         }
-                    
-                    
-                    // Radius Setting
-                    radiusSection
+                        .padding(.horizontal, 20)
+                        .padding(.top, 20)
+                        .padding(.bottom, 100)
+                        .contentShape(Rectangle())
                         .onTapGesture {
-                            isTextFieldFocused = false
+                            focusedField = nil
                         }
+                    }
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 20)
-                .padding(.bottom, 100)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    isTextFieldFocused = false
-                }
-            }
-            .contentShape(Rectangle())
-            .onTapGesture {
-                isTextFieldFocused = false
             }
             .navigationTitle("Edit Reminder")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") { 
-                        dismiss() 
+                    Button("Cancel") {
+                        dismiss()
                     }
                     .foregroundColor(.blue)
                 }
+                
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") { 
+                    Button("Save") {
                         saveChanges()
                     }
                     .foregroundColor(isFormValid ? .blue : .gray)
-                    .fontWeight(.semibold)
                     .disabled(!isFormValid)
                 }
             }
         }
-    }
-    
-    // MARK: - Title Section
-    private var titleSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Reminder Title")
-                .font(.system(size: 16, weight: .semibold, design: .rounded))
-                .foregroundColor(.primary)
-            
-            TextField("What do you want to be reminded of?", text: $reminderTitle)
-                .textFieldStyle(EditTextFieldStyle())
-                .focused($isTextFieldFocused)
-        }
-    }
-    
-    // MARK: - Reminder Type Section
-    private var reminderTypeSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Remind me")
-                .font(.system(size: 16, weight: .semibold, design: .rounded))
-                .foregroundColor(.primary)
-            
-            HStack(spacing: 12) {
-                reminderTypeButton(for: .arrive)
-                reminderTypeButton(for: .leave)
-            }
-        }
-    }
-    
-    private func reminderTypeButton(for type: ReminderType) -> some View {
-        let isSelected = reminderType == type
-        
-        return Button(action: {
-            isTextFieldFocused = false // Dismiss keyboard
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                reminderType = type
-            }
-        }) {
-            HStack(spacing: 8) {
-                Image(systemName: type.icon)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(isSelected ? .white : type.color)
-                
-                Text(type.rawValue)
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
-                    .foregroundColor(isSelected ? .white : .primary)
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
-            .background(isSelected ? type.color : Color(.systemGray6))
-            .clipShape(RoundedRectangle(cornerRadius: 20))
-            .overlay(
-                RoundedRectangle(cornerRadius: 20)
-                    .stroke(type.color.opacity(isSelected ? 1.0 : 0.3), lineWidth: 1.5)
+        .sheet(isPresented: $showingLocationPicker) {
+            LocationPickerView(
+                selectedCoordinate: $selectedCoordinate,
+                selectedLocationName: $selectedLocationName,
+                mapRegion: $mapRegion
             )
         }
-        .buttonStyle(PlainButtonStyle())
-    }
-    
-    
-    // MARK: - Notification Mode Section
-    private var notificationModeSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Notification Frequency")
-                .font(.system(size: 16, weight: .semibold, design: .rounded))
-                .foregroundColor(.primary)
-            
-            VStack(spacing: 8) {
-                ForEach(NotificationMode.allCases, id: \.self) { mode in
-                    notificationModeButton(for: mode)
-                }
+        .onChange(of: selectedLocationName) { _, newName in
+            if !newName.isEmpty && selectedCoordinate != nil {
+                locationQuery = newName
+                searchResults = []
             }
+        }
+        .ignoresSafeArea(.keyboard, edges: .bottom)
+        .onDisappear {
+            // Cancel any ongoing search when view disappears
+            searchTask?.cancel()
         }
     }
     
-    private func notificationModeButton(for mode: NotificationMode) -> some View {
-        let isSelected = notificationMode == mode
-        
-        return Button(action: {
-            isTextFieldFocused = false // Dismiss keyboard
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                notificationMode = mode
+    // MARK: - Reminder Section
+    private var reminderSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Section Header
+            Text("REMINDER")
+                .font(.system(size: 13, weight: .medium, design: .default))
+                .foregroundColor(.secondary)
+                .textCase(.uppercase)
+                .tracking(0.5)
+            
+            // Form Fields
+            VStack(spacing: 0) {
+                // Title Field
+                TextField("Title", text: $reminderTitle)
+                    .font(.system(size: 17, weight: .regular))
+                    .foregroundColor(.primary)
+                    .focused($focusedField, equals: .title)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
             }
-        }) {
-            HStack(spacing: 12) {
-                Circle()
-                    .fill(isSelected ? Color.blue : Color.gray.opacity(0.3))
-                    .frame(width: 20, height: 20)
-                    .overlay(
-                        Circle()
-                            .stroke(Color.blue, lineWidth: 2)
-                    )
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(mode.displayName.components(separatedBy: " (").first ?? mode.displayName)
-                        .font(.system(size: 16, weight: .semibold, design: .rounded))
-                        .foregroundColor(.primary)
-                    
-                    if mode != .onceDaily {
-                        Text("\(Int(mode.cooldownPeriod/60)) minute cooldown")
-                            .font(.system(size: 12, weight: .medium, design: .rounded))
+            .background(Color(.systemGray6))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+    }
+    
+    // MARK: - Trigger Section
+    private var triggerSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Section Header
+            Text("TRIGGER")
+                .font(.system(size: 13, weight: .medium, design: .default))
+                .foregroundColor(.secondary)
+                .textCase(.uppercase)
+                .tracking(0.5)
+            
+            // Form Fields
+            VStack(spacing: 0) {
+                // Trigger Type
+                Button(action: {
+                    focusedField = nil
+                    // Toggle between On Entry and On Exit
+                    reminderType = reminderType == .arrive ? .leave : .arrive
+                }) {
+                    HStack {
+                        Text("Trigger")
+                            .font(.system(size: 17, weight: .regular))
+                            .foregroundColor(.primary)
+                        
+                        Spacer()
+                        
+                        Text(reminderType.rawValue)
+                            .font(.system(size: 17, weight: .regular))
                             .foregroundColor(.secondary)
-                    } else {
-                        Text("Maximum one notification per day")
-                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                        
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 13, weight: .medium))
                             .foregroundColor(.secondary)
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
                 }
                 
-                Spacer()
+                // Divider
+                Divider()
+                    .padding(.horizontal, 16)
+                
+                // Active Toggle
+                HStack {
+                    Text("Active")
+                        .font(.system(size: 17, weight: .regular))
+                        .foregroundColor(.primary)
+                    
+                    Spacer()
+                    
+                    Toggle("", isOn: $isActive)
+                        .labelsHidden()
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(isSelected ? Color.blue.opacity(0.1) : Color(.systemGray6))
+            .background(Color(.systemGray6))
             .clipShape(RoundedRectangle(cornerRadius: 12))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.blue.opacity(isSelected ? 1.0 : 0.3), lineWidth: 1.5)
-            )
         }
-        .buttonStyle(PlainButtonStyle())
     }
     
-    // MARK: - Radius Section
-    private var radiusSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Detection Radius")
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
-                    .foregroundColor(.primary)
-                
-                Spacer()
-                
-                Text("\(Int(radius))m")
-                    .font(.system(size: 14, weight: .medium, design: .rounded))
-                    .foregroundColor(.blue)
-            }
+    // MARK: - Location Section
+    private var locationSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Section Header
+            Text("LOCATION")
+                .font(.system(size: 13, weight: .medium, design: .default))
+                .foregroundColor(.secondary)
+                .textCase(.uppercase)
+                .tracking(0.5)
             
-            Slider(value: $radius, in: 50...500, step: 25)
-                .accentColor(.blue)
-                .onTapGesture {
-                    isTextFieldFocused = false
+            VStack(spacing: 16) {
+                // Search Bar
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(.secondary)
+                    
+                    TextField("Search for a place", text: $locationQuery)
+                        .focused($focusedField, equals: .locationQuery)
+                        .onChange(of: locationQuery) { _, newValue in
+                            performLocationSearchDebounced()
+                        }
+                    
+                    if isSearching {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                    }
+                    
+                    // Clear button
+                    if !locationQuery.isEmpty {
+                        Button(action: {
+                            searchTask?.cancel()
+                            locationQuery = ""
+                            searchResults = []
+                            isSearching = false
+                            focusedField = nil
+                        }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.secondary)
+                        }
+                    }
                 }
-            
-            HStack {
-                Text("50m")
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundColor(.secondary)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(Color(.systemGray6))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
                 
-                Spacer()
+                // Search Results List
+                if !searchResults.isEmpty {
+                    VStack(spacing: 0) {
+                        ForEach(Array(searchResults.enumerated()), id: \.offset) { index, mapItem in
+                            Button(action: {
+                                selectLocation(mapItem)
+                                focusedField = nil
+                            }) {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "mappin.circle.fill")
+                                        .foregroundColor(.blue)
+                                        .font(.system(size: 20))
+                                    
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(mapItem.name ?? "Unknown Location")
+                                            .font(.system(size: 16, weight: .medium))
+                                            .foregroundColor(.primary)
+                                        
+                                        if let address = getAddressString(from: mapItem), address != mapItem.name {
+                                            Text(address)
+                                                .font(.system(size: 14))
+                                                .foregroundColor(.secondary)
+                                                .lineLimit(1)
+                                        }
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundColor(.secondary)
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
+                                .background(Color(.systemBackground))
+                            }
+                            
+                            if index < searchResults.count - 1 {
+                                Divider()
+                                    .padding(.leading, 48)
+                            }
+                        }
+                    }
+                    .background(Color(.systemGray6))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
                 
-                Text("500m")
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundColor(.secondary)
+                // Map View
+                mapSection
+                
+                // Radius Controls
+                if selectedCoordinate != nil {
+                    HStack {
+                        Text("Radius: \(Int(radius))m")
+                            .font(.system(size: 17, weight: .regular))
+                            .foregroundColor(.primary)
+                        
+                        Spacer()
+                        
+                        HStack(spacing: 16) {
+                            Button(action: {
+                                if radius > 50 {
+                                    radius -= 50
+                                }
+                            }) {
+                                Image(systemName: "minus")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(.primary)
+                                    .frame(width: 32, height: 32)
+                                    .background(Color(.systemGray5))
+                                    .clipShape(Circle())
+                            }
+                            .disabled(radius <= 50)
+                            
+                            Button(action: {
+                                if radius < 1000 {
+                                    radius += 50
+                                }
+                            }) {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(.primary)
+                                    .frame(width: 32, height: 32)
+                                    .background(Color(.systemGray5))
+                                    .clipShape(Circle())
+                            }
+                            .disabled(radius >= 1000)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(Color(.systemGray6))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
             }
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.systemGray6))
-        )
+    }
+    
+    // MARK: - Map Section
+    private var mapSection: some View {
+        Map(position: $cameraPosition) {
+            // Show selected coordinate if available
+            if let coordinate = selectedCoordinate {
+                Annotation("Reminder", coordinate: coordinate) {
+                    ZStack {
+                        // Geofence circle
+                        Circle()
+                            .fill(Color.blue.opacity(0.2))
+                            .frame(width: radiusToMapPoints(radius * 2), height: radiusToMapPoints(radius * 2))
+                        
+                        // Center pin
+                        Image(systemName: "mappin")
+                            .foregroundColor(.red)
+                            .font(.title)
+                            .background(
+                                Circle()
+                                    .fill(.white)
+                                    .frame(width: 12, height: 12)
+                            )
+                    }
+                }
+            }
+        }
+        .mapStyle(.standard)
+        .frame(height: 200)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .onTapGesture {
+            showingLocationPicker = true
+        }
+        .onMapCameraChange(frequency: .onEnd) { context in
+            mapRegion = context.region
+        }
     }
     
     // MARK: - Computed Properties
     private var isFormValid: Bool {
-        !reminderTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !reminderTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        selectedCoordinate != nil
     }
     
     // MARK: - Methods
+    
+    // Convert radius in meters to approximate map points
+    private func radiusToMapPoints(_ radiusInMeters: Double) -> CGFloat {
+        let degrees = radiusInMeters / 111000.0
+        let spanRatio = degrees / mapRegion.span.latitudeDelta
+        return CGFloat(spanRatio * 300)
+    }
+    
+    // Debounced search function to avoid too many API calls
+    private func performLocationSearchDebounced() {
+        // Cancel any previous search task
+        searchTask?.cancel()
+        
+        let trimmedQuery = locationQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        guard !trimmedQuery.isEmpty, trimmedQuery.count >= 2 else {
+            searchResults = []
+            isSearching = false
+            return
+        }
+        
+        // Create a new search task with debounce delay
+        searchTask = Task {
+            // Wait 400ms before performing search (debounce)
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            
+            // Check if task was cancelled
+            guard !Task.isCancelled else { return }
+            
+            await MainActor.run {
+                performLocationSearch(query: trimmedQuery)
+            }
+        }
+    }
+    
+    private func performLocationSearch(query: String) {
+        isSearching = true
+        
+        // Use a much wider search region - search globally if needed
+        // Apple's MKLocalSearch works better with a region, but we'll make it very large
+        var searchRegion: MKCoordinateRegion
+        
+        if let currentLocation = locationManager.currentLocation {
+            // Use a very large region centered on current location to get global results
+            // This allows finding locations anywhere while still prioritizing nearby results
+            searchRegion = MKCoordinateRegion(
+                center: currentLocation.coordinate,
+                span: MKCoordinateSpan(latitudeDelta: 180, longitudeDelta: 360) // Effectively global
+            )
+        } else {
+            // If no current location, use a global region
+            searchRegion = MKCoordinateRegion(
+                center: CLLocationCoordinate2D(latitude: 0, longitude: 0),
+                span: MKCoordinateSpan(latitudeDelta: 180, longitudeDelta: 360)
+            )
+        }
+        
+        let request = MKLocalSearch.Request()
+        request.naturalLanguageQuery = query
+        request.region = searchRegion
+        // Include all result types for comprehensive search
+        request.resultTypes = [.pointOfInterest, .address]
+        
+        let search = MKLocalSearch(request: request)
+        search.start { response, error in
+            DispatchQueue.main.async {
+                self.isSearching = false
+                
+                if let error = error {
+                    // Silently handle search errors - just clear results
+                    self.searchResults = []
+                    return
+                }
+                
+                if let response = response {
+                    // Filter out results with invalid coordinates
+                    var validResults = response.mapItems.filter { item in
+                        let coord = item.placemark.coordinate
+                        return !coord.latitude.isNaN && !coord.longitude.isNaN &&
+                               coord.latitude >= -90 && coord.latitude <= 90 &&
+                               coord.longitude >= -180 && coord.longitude <= 180
+                    }
+                    
+                    // Sort results by relevance:
+                    // 1. Exact name matches first
+                    // 2. Name starts with query
+                    // 3. Name contains query
+                    // 4. Then by distance from current location if available
+                    validResults.sort { item1, item2 in
+                        let queryLower = query.lowercased()
+                        let name1 = (item1.name ?? "").lowercased()
+                        let name2 = (item2.name ?? "").lowercased()
+                        
+                        // Exact match check
+                        let exactMatch1 = name1 == queryLower
+                        let exactMatch2 = name2 == queryLower
+                        if exactMatch1 != exactMatch2 {
+                            return exactMatch1
+                        }
+                        
+                        // Starts with check
+                        let startsWith1 = name1.hasPrefix(queryLower)
+                        let startsWith2 = name2.hasPrefix(queryLower)
+                        if startsWith1 != startsWith2 {
+                            return startsWith1
+                        }
+                        
+                        // Contains check
+                        let contains1 = name1.contains(queryLower)
+                        let contains2 = name2.contains(queryLower)
+                        if contains1 != contains2 {
+                            return contains1
+                        }
+                        
+                        // If both match equally, sort by distance if we have current location
+                        if let currentLocation = self.locationManager.currentLocation {
+                            let distance1 = CLLocation(
+                                latitude: item1.placemark.coordinate.latitude,
+                                longitude: item1.placemark.coordinate.longitude
+                            ).distance(from: currentLocation)
+                            
+                            let distance2 = CLLocation(
+                                latitude: item2.placemark.coordinate.latitude,
+                                longitude: item2.placemark.coordinate.longitude
+                            ).distance(from: currentLocation)
+                            
+                            return distance1 < distance2
+                        }
+                        
+                        return false
+                    }
+                    
+                    // Show up to 15 results for better discoverability
+                    self.searchResults = Array(validResults.prefix(15))
+                } else {
+                    self.searchResults = []
+                }
+            }
+        }
+    }
+    
+    private func selectLocation(_ mapItem: MKMapItem) {
+        selectedCoordinate = mapItem.placemark.coordinate
+        selectedLocationName = mapItem.name ?? "Selected Location"
+        let newRegion = MKCoordinateRegion(
+            center: mapItem.placemark.coordinate,
+            span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+        )
+        mapRegion = newRegion
+        cameraPosition = .region(newRegion)
+        
+        locationQuery = mapItem.name ?? ""
+        searchResults = []
+    }
+    
+    private func getAddressString(from mapItem: MKMapItem) -> String? {
+        let placemark = mapItem.placemark
+        var addressComponents: [String] = []
+        
+        if let thoroughfare = placemark.thoroughfare {
+            var street = thoroughfare
+            if let subThoroughfare = placemark.subThoroughfare {
+                street = "\(subThoroughfare) \(thoroughfare)"
+            }
+            addressComponents.append(street)
+        }
+        
+        if let locality = placemark.locality {
+            addressComponents.append(locality)
+        }
+        
+        if let administrativeArea = placemark.administrativeArea {
+            addressComponents.append(administrativeArea)
+        }
+        
+        let address = addressComponents.joined(separator: ", ")
+        return address.isEmpty ? nil : address
+    }
+    
     private func saveChanges() {
+        guard let coordinate = selectedCoordinate else { return }
+        
         var updatedLocation = location
         updatedLocation.name = reminderTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        updatedLocation.address = selectedLocationName
+        updatedLocation.latitude = coordinate.latitude
+        updatedLocation.longitude = coordinate.longitude
         updatedLocation.radius = radius
-        updatedLocation.notificationMode = notificationMode
+        updatedLocation.notificationMode = .normal
+        updatedLocation.isEnabled = isActive
         
         // Update notification settings based on reminder type
         if reminderType == .arrive {
@@ -724,7 +1054,7 @@ struct FullScreenMapView: View {
             .navigationTitle(location.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
                 }
             }
@@ -743,5 +1073,5 @@ struct FullScreenMapView: View {
             exitMessage: ""
         )
     )
-    .environmentObject(LocationManager())
+    .environmentObject(ServiceLocator.locationManager)
 }

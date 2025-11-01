@@ -115,7 +115,7 @@ struct AppConfiguration {
         static let soundEnabled = true
         static let badgeEnabled = true
         static let alertEnabled = true
-        static let defaultRingtone = RingtoneType.defaultSound
+        // defaultRingtone removed in minimal mode - using system default sound
         static let maxPendingNotifications = 64
     }
 }
@@ -202,10 +202,7 @@ extension Bundle {
 
 #if DEBUG
 struct PreviewConfiguration {
-    // For previews, we'll use the default service from the service locator
-    static var sampleRingtoneService: RingtoneServiceProtocol {
-        ServiceLocator.ringtoneService
-    }
+    // Ringtone service removed in minimal mode
     
     static func createMockServiceContainer() -> ServiceContainer {
         let container = ServiceContainer.shared

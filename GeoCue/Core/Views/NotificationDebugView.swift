@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct NotificationDebugView: View {
-    @EnvironmentObject private var locationManager: LocationManager
+    @EnvironmentObject private var locationManager: AnyLocationManager
     @State private var showingDebugInfo = false
     @State private var selectedLocation: GeofenceLocation?
     @State private var debugInfo = ""
@@ -166,7 +166,7 @@ struct NotificationDebugView: View {
             .navigationTitle("Debug Info")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") {
                         showingDebugInfo = false
                     }
@@ -183,7 +183,7 @@ struct NotificationDebugView: View {
 struct NotificationDebugView_Previews: PreviewProvider {
     static var previews: some View {
         NotificationDebugView()
-            .environmentObject(LocationManager())
+            .environmentObject(ServiceLocator.locationManager)
     }
 }
 #endif

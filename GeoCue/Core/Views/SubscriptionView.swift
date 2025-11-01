@@ -33,7 +33,7 @@ struct SubscriptionView: View {
             .navigationTitle("Premium Features")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
+                ToolbarItem(placement: .topBarLeading) {
                     Button("Close") {
                         dismiss()
                     }
@@ -400,4 +400,9 @@ struct PricingComparisonCard: View {
     SubscriptionView()
         .environmentObject(SubscriptionManager.shared)
 }
+
+
+
+
+
 

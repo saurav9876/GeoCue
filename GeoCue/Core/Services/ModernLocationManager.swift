@@ -9,7 +9,6 @@ class ModernLocationManager: NSObject, ObservableObject {
     private var locationManager = CLLocationManager()
     private var monitor: CLMonitor?
     private let monitorName = "GeoCueMonitor"
-    private let notificationManager = NotificationManager()
     private let notificationController = GeofenceNotificationController()
     private let logger = Logger.shared
     
@@ -28,7 +27,7 @@ class ModernLocationManager: NSObject, ObservableObject {
     override init() {
         super.init()
         setupLocationManager()
-        setupNotificationManager()
+        // NotificationService is now self-contained and doesn't require configuration
         Task {
             await initializeMonitoring()
         }
@@ -45,17 +44,19 @@ class ModernLocationManager: NSObject, ObservableObject {
         updateLocationServicesStatus()
     }
     
-    private func setupNotificationManager() {
-        let ringtoneService = ServiceLocator.ringtoneService
-        notificationManager.setRingtoneService(ringtoneService)
-        logger.info("NotificationManager configured", category: .location)
-    }
+    private func setupNotificationManager() { }
     
     private func initializeMonitoring() async {
         do {
             monitor = await CLMonitor(monitorName)
             await updateMonitoringStatus()
             await startMonitoringEvents()
+            // If we already have Always authorization at startup, ensure existing
+            // geofences are registered with CLMonitor so background events fire.
+            if locationManager.authorizationStatus == .authorizedAlways {
+                await setupExistingGeofences()
+                await updateMonitoringStatus()
+            }
             logger.info("CLMonitor initialized successfully", category: .location)
         } catch {
             logger.error("Failed to initialize CLMonitor: \(error.localizedDescription)", category: .location)
@@ -110,24 +111,11 @@ class ModernLocationManager: NSObject, ObservableObject {
         guard location.isEnabled, location.notifyOnEntry else { return }
         
         if notificationController.shouldNotify(for: location, event: .entry) {
-            if DoNotDisturbManager.shared.shouldSuppressNotification() {
-                logger.info("Suppressing entry notification due to Do Not Disturb: \(location.name)", category: .location)
-                return
+            if NotificationService.shared.postGeofenceNotification(event: .entry, location: location) {
+                notificationController.recordNotificationSent(for: location.id)
+            } else {
+                logger.info("Notification service throttled entry notification for: \(location.name)", category: .location)
             }
-            
-            let message = location.entryMessage.isEmpty ? 
-                "You've arrived at \(location.name)" : location.entryMessage
-            
-            let priority = NotificationEscalator.shared.preferences.defaultStyle
-            
-            NotificationEscalator.shared.sendNotification(
-                title: "GeoCue Reminder",
-                body: message,
-                identifier: "entry-\(location.id.uuidString)",
-                priority: priority
-            )
-            
-            notificationController.recordNotificationSent(for: location.id)
         }
     }
     
@@ -137,24 +125,11 @@ class ModernLocationManager: NSObject, ObservableObject {
         guard location.isEnabled, location.notifyOnExit else { return }
         
         if notificationController.shouldNotify(for: location, event: .exit) {
-            if DoNotDisturbManager.shared.shouldSuppressNotification() {
-                logger.info("Suppressing exit notification due to Do Not Disturb: \(location.name)", category: .location)
-                return
+            if NotificationService.shared.postGeofenceNotification(event: .exit, location: location) {
+                notificationController.recordNotificationSent(for: location.id)
+            } else {
+                logger.info("Notification service throttled exit notification for: \(location.name)", category: .location)
             }
-            
-            let message = location.exitMessage.isEmpty ? 
-                "You've left \(location.name)" : location.exitMessage
-            
-            let priority = NotificationEscalator.shared.preferences.defaultStyle
-            
-            NotificationEscalator.shared.sendNotification(
-                title: "GeoCue Reminder",
-                body: message,
-                identifier: "exit-\(location.id.uuidString)",
-                priority: priority
-            )
-            
-            notificationController.recordNotificationSent(for: location.id)
         }
     }
     
@@ -391,6 +366,33 @@ class ModernLocationManager: NSObject, ObservableObject {
     func canAddGeofences() -> Bool {
         return authorizationStatus == .authorizedAlways
     }
+
+    // MARK: - Compatibility API (match legacy interface used by views)
+    func startLocationUpdates() {
+        guard authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways else {
+            logger.warning("Cannot start location updates without authorization", category: .location)
+            return
+        }
+        locationManager.startUpdatingLocation()
+        logger.info("Starting location updates (modern)", category: .location)
+    }
+
+    func requestLocationUpdate() {
+        guard authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways else {
+            logger.warning("Cannot request location update without authorization", category: .location)
+            return
+        }
+        
+        // Use a hybrid approach: try requestLocation first (one-time, accurate)
+        // But also start continuous updates as fallback for faster response
+        locationManager.requestLocation()
+        
+        // Start continuous updates as backup - will stop automatically when we get good location
+        // or after a timeout handled by the delegate
+        locationManager.startUpdatingLocation()
+        
+        logger.info("Requested location update with continuous fallback (modern)", category: .location)
+    }
     
     func getLocationServicesStatus() -> String {
         if !locationServicesEnabled {
@@ -480,11 +482,18 @@ extension ModernLocationManager: CLLocationManagerDelegate {
     }
     
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard let location = locations.last,
-              location.horizontalAccuracy < 100 else { return }
+        guard let location = locations.last else { return }
         
         Task { @MainActor in
-            currentLocation = location
+            // Accept location if it's reasonably accurate (< 100m), or if we don't have one yet, accept any location as fallback
+            if location.horizontalAccuracy < 100 || currentLocation == nil {
+                currentLocation = location
+                // Stop continuous updates after getting a good location to save battery
+                // Only stop if we got a high accuracy location (< 50m)
+                if location.horizontalAccuracy < 50 {
+                    manager.stopUpdatingLocation()
+                }
+            }
         }
     }
     
@@ -528,4 +537,3 @@ extension ModernLocationManager: CLLocationManagerDelegate {
         await updateMonitoringStatus()
     }
 }
-

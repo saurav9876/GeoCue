@@ -3,9 +3,8 @@ import UserNotifications
 import CoreLocation
 
 struct NotificationDiagnosticsView: View {
-    @EnvironmentObject private var locationManager: LocationManager
-    @EnvironmentObject private var notificationManager: NotificationManager
-    @EnvironmentObject private var notificationEscalator: NotificationEscalator
+    @EnvironmentObject private var locationManager: AnyLocationManager
+    // Unified notification service is a singleton; no env object needed
     @Environment(\.dismiss) private var dismiss
     
     @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
@@ -54,7 +53,7 @@ struct NotificationDiagnosticsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarBackButtonHidden(true)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
+                ToolbarItem(placement: .topBarLeading) {
                     Button("Done") {
                         dismiss()
                     }
@@ -164,6 +163,20 @@ struct NotificationDiagnosticsView: View {
                     .frame(maxWidth: .infinity)
                     .padding()
                     .background(Color.blue)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+                
+                Button(action: runComprehensiveTest) {
+                    HStack {
+                        Image(systemName: "checkmark.shield")
+                            .foregroundColor(.white)
+                        Text("Run Full System Test")
+                            .fontWeight(.medium)
+                            .foregroundColor(.white)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.green)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
                 
@@ -292,25 +305,13 @@ struct NotificationDiagnosticsView: View {
     }
     
     private func requestNotificationPermission() {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
-            DispatchQueue.main.async {
-                if granted {
-                    self.notificationStatus = .authorized
-                }
-                if let error = error {
-                    self.diagnosticResults.append("Notification permission error: \(error.localizedDescription)")
-                }
-            }
+        NotificationService.shared.requestAuthorization { granted in
+            if granted { self.notificationStatus = .authorized }
         }
     }
     
     private func sendTestNotification() {
-        notificationEscalator.sendNotification(
-            title: "Test Notification",
-            body: "This is a test notification to verify the system is working",
-            identifier: "test-notification",
-            priority: .medium
-        )
+        NotificationService.shared.sendTestNotification()
         
         showingTestNotification = true
         
@@ -320,29 +321,88 @@ struct NotificationDiagnosticsView: View {
         }
     }
     
+    private func runComprehensiveTest() {
+        diagnosticResults.removeAll()
+        diagnosticResults.append("🔄 Running comprehensive notification system test...")
+        
+        NotificationService.shared.testNotificationSystem { result in
+            self.diagnosticResults.removeAll()
+            self.diagnosticResults.append(contentsOf: result.components(separatedBy: "\n"))
+            
+            // Also run the existing diagnostics
+            self.runDiagnostics()
+        }
+    }
+    
     private func runDiagnostics() {
         diagnosticResults.removeAll()
         
         // Check geofences first (can access on main thread since we're already here)
         let geofenceCount = locationManager.geofenceLocations.count
+        let enabledGeofences = locationManager.geofenceLocations.filter { $0.isEnabled }
+        
         if geofenceCount == 0 {
-            diagnosticResults.append("No geofence locations configured")
+            diagnosticResults.append("❌ No geofence locations configured")
         } else {
-            diagnosticResults.append("\(geofenceCount) geofence locations configured")
+            diagnosticResults.append("✅ \(geofenceCount) geofence locations configured (\(enabledGeofences.count) enabled)")
+            
+            // Check individual geofence settings
+            for location in locationManager.geofenceLocations {
+                var status = location.isEnabled ? "✅" : "⚠️"
+                var details = "\(status) \(location.name)"
+                
+                if location.isEnabled {
+                    var notifications: [String] = []
+                    if location.notifyOnEntry { notifications.append("entry") }
+                    if location.notifyOnExit { notifications.append("exit") }
+                    
+                    if notifications.isEmpty {
+                        details += " (no notifications enabled)"
+                    } else {
+                        details += " (notify on: \(notifications.joined(separator: ", ")))"
+                    }
+                } else {
+                    details += " (disabled)"
+                }
+                
+                diagnosticResults.append(details)
+            }
         }
         
-        // Check location services asynchronously to avoid blocking
+        // Check location services and monitoring status
         Task.detached {
             let locationServicesEnabled = CLLocationManager.locationServicesEnabled()
             
             await MainActor.run {
                 if !locationServicesEnabled {
-                    self.diagnosticResults.append("Location services are disabled in iOS Settings")
+                    self.diagnosticResults.append("❌ Location services are disabled in iOS Settings")
+                } else {
+                    self.diagnosticResults.append("✅ Location services are enabled")
+                }
+                
+                // Check background app refresh
+                let backgroundRefreshStatus = UIApplication.shared.backgroundRefreshStatus
+                switch backgroundRefreshStatus {
+                case .available:
+                    self.diagnosticResults.append("✅ Background App Refresh is available")
+                case .denied:
+                    self.diagnosticResults.append("❌ Background App Refresh is denied")
+                case .restricted:
+                    self.diagnosticResults.append("⚠️ Background App Refresh is restricted")
+                @unknown default:
+                    self.diagnosticResults.append("⚠️ Background App Refresh status unknown")
                 }
                 
                 let appState = UIApplication.shared.applicationState
-                if appState != .active {
-                    self.diagnosticResults.append("App is running in background - notifications should work")
+                switch appState {
+                case .active:
+                    self.diagnosticResults.append("ℹ️ App is currently active")
+                case .background:
+                    self.diagnosticResults.append("ℹ️ App is running in background")
+                case .inactive:
+                    self.diagnosticResults.append("ℹ️ App is inactive")
+                @unknown default:
+                    self.diagnosticResults.append("ℹ️ App state unknown")
                 }
             }
         }
@@ -350,20 +410,46 @@ struct NotificationDiagnosticsView: View {
         // Check notification center settings asynchronously
         UNUserNotificationCenter.current().getNotificationSettings { settings in
             DispatchQueue.main.async {
-                if settings.authorizationStatus == .denied {
-                    self.diagnosticResults.append("Notifications are denied in iOS Settings")
+                switch settings.authorizationStatus {
+                case .authorized:
+                    self.diagnosticResults.append("✅ Notifications are authorized")
+                case .denied:
+                    self.diagnosticResults.append("❌ Notifications are denied in iOS Settings")
+                case .notDetermined:
+                    self.diagnosticResults.append("⚠️ Notification permission not requested yet")
+                case .provisional:
+                    self.diagnosticResults.append("⚠️ Notifications are provisionally authorized")
+                case .ephemeral:
+                    self.diagnosticResults.append("⚠️ Notifications are ephemeral")
+                @unknown default:
+                    self.diagnosticResults.append("⚠️ Unknown notification authorization status")
                 }
                 
                 if settings.alertSetting == .disabled {
-                    self.diagnosticResults.append("Alert notifications are disabled")
+                    self.diagnosticResults.append("❌ Alert notifications are disabled")
+                } else if settings.alertSetting == .enabled {
+                    self.diagnosticResults.append("✅ Alert notifications are enabled")
                 }
                 
                 if settings.soundSetting == .disabled {
-                    self.diagnosticResults.append("Sound notifications are disabled")
+                    self.diagnosticResults.append("❌ Sound notifications are disabled")
+                } else if settings.soundSetting == .enabled {
+                    self.diagnosticResults.append("✅ Sound notifications are enabled")
                 }
                 
                 if settings.badgeSetting == .disabled {
-                    self.diagnosticResults.append("Badge notifications are disabled")
+                    self.diagnosticResults.append("❌ Badge notifications are disabled")
+                } else if settings.badgeSetting == .enabled {
+                    self.diagnosticResults.append("✅ Badge notifications are enabled")
+                }
+                
+                // Check critical alerts and time sensitive notifications
+                if #available(iOS 15.0, *) {
+                    if settings.timeSensitiveSetting == .enabled {
+                        self.diagnosticResults.append("✅ Time-sensitive notifications are enabled")
+                    } else if settings.timeSensitiveSetting == .disabled {
+                        self.diagnosticResults.append("⚠️ Time-sensitive notifications are disabled")
+                    }
                 }
             }
         }

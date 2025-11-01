@@ -150,6 +150,11 @@ class AnyLocationManager: ObservableObject {
             legacy.requestLocationPermission()
         }
     }
+
+    func retryPermissionRequest() {
+        // Retry by invoking the request flow again
+        requestLocationPermission()
+    }
     
     func canStartLocationUpdates() -> Bool {
         if #available(iOS 17.0, *), let modern = modernManager {
@@ -168,6 +173,28 @@ class AnyLocationManager: ObservableObject {
         }
         return false
     }
+
+    // Compatibility: start/one-shot location updates for views expecting legacy API
+    func startLocationUpdates() {
+        if #available(iOS 17.0, *), let modern = modernManager {
+            // Mirror legacy behavior
+            if modern.canStartLocationUpdates() {
+                modern.startLocationUpdates()
+            }
+        } else if let legacy = legacyManager {
+            legacy.startLocationUpdates()
+        }
+    }
+
+    func requestLocationUpdate() {
+        if #available(iOS 17.0, *), let modern = modernManager {
+            if modern.canStartLocationUpdates() {
+                modern.requestLocationUpdate()
+            }
+        } else if let legacy = legacyManager {
+            legacy.requestLocationUpdate()
+        }
+    }
     
     func getLocationServicesStatus() -> String {
         if #available(iOS 17.0, *), let modern = modernManager {
@@ -185,6 +212,11 @@ class AnyLocationManager: ObservableObject {
             await legacy.addGeofence(location)
         }
     }
+
+    // Non-async convenience wrappers to preserve existing call sites
+    func addGeofence(_ location: GeofenceLocation) {
+        Task { await addGeofence(location) }
+    }
     
     func removeGeofence(_ location: GeofenceLocation) async {
         if #available(iOS 17.0, *), let modern = modernManager {
@@ -193,6 +225,10 @@ class AnyLocationManager: ObservableObject {
             await legacy.removeGeofence(location)
         }
     }
+
+    func removeGeofence(_ location: GeofenceLocation) {
+        Task { await removeGeofence(location) }
+    }
     
     func updateGeofence(_ location: GeofenceLocation) async {
         if #available(iOS 17.0, *), let modern = modernManager {
@@ -200,6 +236,10 @@ class AnyLocationManager: ObservableObject {
         } else if let legacy = legacyManager {
             await legacy.updateGeofence(location)
         }
+    }
+
+    func updateGeofence(_ location: GeofenceLocation) {
+        Task { await updateGeofence(location) }
     }
     
     func performHealthCheck() async -> [String] {
