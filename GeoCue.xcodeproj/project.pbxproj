@@ -48,16 +48,6 @@
 			path = GeoCue;
 			sourceTree = "<group>";
 		};
-		54FDA6E42E526FD50092BFD0 /* GeoCueTests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = GeoCueTests;
-			sourceTree = "<group>";
-		};
-		54FDA6EE2E526FD50092BFD0 /* GeoCueUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = GeoCueUITests;
-			sourceTree = "<group>";
-		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -89,8 +79,6 @@
 			isa = PBXGroup;
 			children = (
 				54FDA6D62E526FD40092BFD0 /* GeoCue */,
-				54FDA6E42E526FD50092BFD0 /* GeoCueTests */,
-				54FDA6EE2E526FD50092BFD0 /* GeoCueUITests */,
 				54FDA6D52E526FD40092BFD0 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -143,9 +131,6 @@
 			dependencies = (
 				54FDA6E32E526FD50092BFD0 /* PBXTargetDependency */,
 			);
-			fileSystemSynchronizedGroups = (
-				54FDA6E42E526FD50092BFD0 /* GeoCueTests */,
-			);
 			name = GeoCueTests;
 			packageProductDependencies = (
 			);
@@ -165,9 +150,6 @@
 			);
 			dependencies = (
 				54FDA6ED2E526FD50092BFD0 /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				54FDA6EE2E526FD50092BFD0 /* GeoCueUITests */,
 			);
 			name = GeoCueUITests;
 			packageProductDependencies = (

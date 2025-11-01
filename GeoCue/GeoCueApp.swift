@@ -2,11 +2,10 @@ import SwiftUI
 
 @main
 struct GeoCueApp: App {
-    @StateObject private var locationManager = LocationManager()
-    @StateObject private var notificationManager = NotificationManager()
+    @StateObject private var locationManager = ServiceLocator.locationManager
     @StateObject private var themeManager = ThemeManager()
     @StateObject private var onboardingManager = OnboardingManager.shared
-    @StateObject private var notificationEscalator = NotificationEscalator.shared
+    @StateObject private var subscriptionManager = SubscriptionManager.shared
     
     private let serviceContainer = ServiceContainer.shared
     
@@ -21,11 +20,9 @@ struct GeoCueApp: App {
                 if onboardingManager.hasCompletedOnboarding {
                     ContentView()
                         .environmentObject(locationManager)
-                        .environmentObject(notificationManager)
                         .environmentObject(themeManager)
                         .environmentObject(onboardingManager)
-                        .environmentObject(notificationEscalator)
-                        .withServices(serviceContainer)
+                        .environmentObject(subscriptionManager)
                         .preferredColorScheme(themeManager.currentTheme.colorScheme)
                         .onAppear {
                             setupAppDependencies()
@@ -33,11 +30,9 @@ struct GeoCueApp: App {
                 } else {
                     OnboardingView()
                         .environmentObject(locationManager)
-                        .environmentObject(notificationManager)
                         .environmentObject(themeManager)
                         .environmentObject(onboardingManager)
-                        .environmentObject(notificationEscalator)
-                        .withServices(serviceContainer)
+                        .environmentObject(subscriptionManager)
                         .preferredColorScheme(themeManager.currentTheme.colorScheme)
                         .onAppear {
                             setupAppDependencies()
@@ -73,11 +68,6 @@ struct GeoCueApp: App {
     }
     
     private func setupAppDependencies() {
-        // Using iOS default notification sounds for production stability
-        
-        // Initialize app services
-        notificationManager.requestNotificationPermission()
-        
         Logger.shared.info("App dependencies configured successfully", category: .general)
     }
 }

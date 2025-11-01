@@ -5,21 +5,24 @@ import CoreLocation
 import UIKit
 
 struct ContentView: View {
-    @EnvironmentObject private var locationManager: LocationManager
-    @EnvironmentObject private var notificationManager: NotificationManager
+    @EnvironmentObject private var locationManager: AnyLocationManager
     @EnvironmentObject private var themeManager: ThemeManager
     @EnvironmentObject private var onboardingManager: OnboardingManager
-    @EnvironmentObject private var notificationEscalator: NotificationEscalator
-    @Environment(\.ringtoneService) private var ringtoneService
-    @StateObject private var doNotDisturbManager = DoNotDisturbManager.shared
+    @EnvironmentObject private var subscriptionManager: SubscriptionManager
+    @State private var showingSubscription = false
     @State private var showingSettings = false
     @State private var selectedLocation: GeofenceLocation?
     @State private var selectedTab = 0
     @State private var showingAddLocation = false
-    @State private var mapRegion = MKCoordinateRegion(
-        center: CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194),
-        span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
-    )
+    @State private var mapRegion: MKCoordinateRegion
+
+    init() {
+        // Default region; updated onAppear when location becomes available
+        _mapRegion = State(initialValue: MKCoordinateRegion(
+            center: CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194),
+            span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
+        ))
+    }
     
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -28,17 +31,13 @@ struct ContentView: View {
                 remindersListView
                     .navigationTitle("My Reminders")
                     .navigationBarTitleDisplayMode(.large)
-                    .toolbar {
-                        ToolbarItem(placement: .navigationBarTrailing) {
-                            Button(action: {
-                                showingAddLocation = true
-                            }) {
-                                Image(systemName: "plus")
-                                    .font(.system(size: 18, weight: .semibold))
-                                    .foregroundColor(.blue)
-                            }
+                    .navigationBarItems(trailing:
+                        Button(action: { showingAddLocation = true }) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundColor(.blue)
                         }
-                    }
+                    )
             }
             .tag(0)
             .tabItem {
@@ -83,7 +82,13 @@ struct ContentView: View {
         .sheet(isPresented: $showingAddLocation) {
             AddLocationView()
         }
-        .alert("Location Permission Required", isPresented: $locationManager.showingLocationPermissionAlert) {
+        .alert(
+            "Location Permission Required",
+            isPresented: Binding(
+                get: { locationManager.showingLocationPermissionAlert },
+                set: { locationManager.showingLocationPermissionAlert = $0 }
+            )
+        ) {
             Button("Settings") {
                 if let settingsUrl = URL(string: UIApplication.openSettingsURLString) {
                     UIApplication.shared.open(settingsUrl)
@@ -94,14 +99,21 @@ struct ContentView: View {
             }
             Button("Cancel", role: .cancel) { }
         } message: {
-            if !locationManager.isLocationServicesEnabled() {
+            if !locationManager.locationServicesEnabled {
                 Text("Location Services are disabled. Please enable them in Settings > Privacy & Security > Location Services.")
             } else {
                 Text("GeoCue needs 'Always' location permission to monitor geofences in the background. Please enable it in Settings > Privacy & Security > Location Services > GeoCue.")
             }
         }
         .onAppear {
+            Logger.shared.info("ContentView appeared", category: .general)
             setupApp()
+            if let location = locationManager.currentLocation {
+                mapRegion = MKCoordinateRegion(
+                    center: location.coordinate,
+                    span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
+                )
+            }
         }
     }
     
@@ -415,7 +427,7 @@ struct ContentView: View {
                 MapCompass()
             }
             .onAppear {
-                // Delayed initialization to prevent Metal issues
+                
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     centerMapOnCurrentLocation()
                 }
@@ -445,104 +457,18 @@ struct ContentView: View {
     // MARK: - Settings View
     private var settingsView: some View {
         ScrollView {
-                            VStack(spacing: 24) {
-                    doNotDisturbSection
-                    notificationStylesSection
-                    themeSettingsSection
-                    appInfoSection
-                    privacySection
-                    onboardingSection
-                }
+            VStack(spacing: 24) {
+                themeSettingsSection
+                appInfoSection
+                privacySection
+                onboardingSection
+            }
             .padding(.top, 8)
             .padding(.bottom, 20)
         }
     }
     
     // MARK: - Settings Sections
-    
-    private var doNotDisturbSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 8) {
-                Image(systemName: "moon.zzz")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.purple)
-                
-                Text("Do Not Disturb")
-                    .font(.headline)
-                    .foregroundColor(.primary)
-            }
-            
-            VStack(spacing: 12) {
-                // Current status
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(doNotDisturbManager.statusDescription)
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.primary)
-                        
-                        if doNotDisturbManager.isCurrentlyActive {
-                            Text("Notifications are silenced")
-                                .font(.system(size: 12, weight: .regular))
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    
-                    Spacer()
-                    
-                    if doNotDisturbManager.isCurrentlyActive {
-                        Image(systemName: "moon.zzz.fill")
-                            .font(.system(size: 16))
-                            .foregroundColor(.purple)
-                    }
-                }
-                .padding()
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(doNotDisturbManager.isCurrentlyActive ? Color.purple.opacity(0.1) : Color(.systemGray6))
-                )
-                
-                // Duration options
-                LazyVGrid(columns: [
-                    GridItem(.flexible()),
-                    GridItem(.flexible())
-                ], spacing: 8) {
-                    ForEach(DoNotDisturbDuration.allCases, id: \.self) { duration in
-                        doNotDisturbButton(for: duration)
-                    }
-                }
-            }
-        }
-        .padding(.horizontal, 20)
-    }
-    
-    private func doNotDisturbButton(for duration: DoNotDisturbDuration) -> some View {
-        Button(action: {
-            if duration == .until {
-                // Show date picker (simplified for now - could expand to sheet)
-                let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
-                doNotDisturbManager.setDoNotDisturb(.until, customEndDate: tomorrow)
-            } else {
-                doNotDisturbManager.setDoNotDisturb(duration)
-            }
-        }) {
-            VStack(spacing: 6) {
-                Image(systemName: duration.icon)
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundColor(doNotDisturbManager.duration == duration ? .white : .primary)
-                
-                Text(duration.displayName)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(doNotDisturbManager.duration == duration ? .white : .primary)
-                    .lineLimit(1)
-            }
-            .frame(maxWidth: .infinity, minHeight: 60)
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(doNotDisturbManager.duration == duration ? Color.purple : Color(.systemGray6))
-            )
-        }
-        .buttonStyle(PlainButtonStyle())
-    }
     
     private var appInfoSection: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -640,53 +566,9 @@ struct ContentView: View {
         .padding(.horizontal, 20)
     }
     
-    private var notificationStylesSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 8) {
-                Image(systemName: "bell.badge")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.blue)
-                
-                Text("Notification Styles")
-                    .font(.headline)
-                    .foregroundColor(.primary)
-            }
-            
-            VStack(spacing: 12) {
-                NavigationLink(destination: NotificationPreferencesView()) {
-                    HStack {
-                        Image(systemName: "bell.badge")
-                            .font(.system(size: 16))
-                            .foregroundColor(.blue)
-                            .frame(width: 24)
-                        
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Customize Notification Styles")
-                                .font(.system(size: 15, weight: .medium))
-                                .foregroundColor(.primary)
-                            
-                            Text("Set default styles and customize by priority")
-                                .font(.system(size: 13, weight: .regular))
-                                .foregroundColor(.secondary)
-                        }
-                        
-                        Spacer()
-                        
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(.secondary)
-                    }
-                    .padding()
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color(.systemGray6))
-                    )
-                }
-                .buttonStyle(PlainButtonStyle())
-            }
-        }
-        .padding(.horizontal, 20)
-    }
+    // Premium Subscription section removed per request
+    
+    // Notifications section removed in minimal mode
     
     private var onboardingSection: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -898,15 +780,29 @@ struct ContentView: View {
     // MARK: - Lifecycle
     private func setupApp() {
         updateMapToUserLocation()
+        
+        // Ensure notification permissions are requested if not already granted
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            DispatchQueue.main.async {
+                if settings.authorizationStatus == .notDetermined {
+                    Logger.shared.info("Requesting notification permission as fallback", category: .general)
+                    NotificationService.shared.requestAuthorization { granted in
+                        Logger.shared.info("Notification permission granted: \(granted)", category: .general)
+                    }
+                }
+            }
+        }
     }
+    
 }
 
 
-// MARK: - Reminder Card View
+// MARK: - Simple Location Row View
 struct SimpleLocationRowView: View {
     let location: GeofenceLocation
     let onTap: () -> Void
-    @EnvironmentObject private var locationManager: LocationManager
+    
+    @EnvironmentObject private var locationManager: AnyLocationManager
     @State private var locationName: String = ""
     
     var body: some View {
@@ -915,7 +811,22 @@ struct SimpleLocationRowView: View {
         }
         .buttonStyle(PlainButtonStyle())
         .onAppear {
-            fetchLocationName()
+            loadLocationName()
+        }
+    }
+    
+    private func loadLocationName() {
+        // Set initial fallback based on location name if we have one
+        if locationName.isEmpty {
+            // Use the stored location name as initial fallback
+            locationName = location.name.isEmpty ? "Loading location..." : location.name
+        }
+        
+        let clLocation = CLLocation(latitude: location.latitude, longitude: location.longitude)
+        LocationNameCache.shared.locationName(for: clLocation) { name in
+            DispatchQueue.main.async {
+                self.locationName = name
+            }
         }
     }
     
@@ -974,7 +885,7 @@ struct SimpleLocationRowView: View {
                 .foregroundColor(location.isEnabled ? .primary : .secondary)
                 .lineLimit(1)
             
-            Text(locationName.isEmpty ? "Loading location..." : locationName)
+            Text(locationName.isEmpty ? (location.name.isEmpty ? "Loading location..." : location.name) : locationName)
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(.secondary)
                 .lineLimit(2)
@@ -1052,48 +963,11 @@ struct SimpleLocationRowView: View {
             .stroke(location.isEnabled ? Color.blue.opacity(0.1) : Color.gray.opacity(0.1), lineWidth: 1)
     }
     
-    private func fetchLocationName() {
-        let geocoder = CLGeocoder()
-        let coordinate = CLLocation(latitude: location.latitude, longitude: location.longitude)
-        
-        geocoder.reverseGeocodeLocation(coordinate) { placemarks, error in
-            DispatchQueue.main.async {
-                if let placemark = placemarks?.first {
-                    var components: [String] = []
-                    
-                    if let name = placemark.name {
-                        components.append(name)
-                    }
-                    if let locality = placemark.locality {
-                        components.append(locality)
-                    }
-                    if let administrativeArea = placemark.administrativeArea {
-                        components.append(administrativeArea)
-                    }
-                    
-                    if components.isEmpty {
-                        locationName = "Unknown Location"
-                    } else {
-                        locationName = components.joined(separator: ", ")
-                    }
-                } else {
-                    locationName = "Unknown Location"
-                }
-            }
-        }
-    }
+    
     
     private func frequencyText(for location: GeofenceLocation) -> String {
-        switch location.notificationMode {
-        case .normal:
-            return "Normal"
-        case .frequent:
-            return "Frequent"
-        case .quiet:
-            return "Quiet"
-        case .onceDaily:
-            return "Daily"
-        }
+        // Always return "Normal" since only normal mode is available
+        return "Normal"
     }
     
     private func triggerIcon(for location: GeofenceLocation) -> String {
@@ -1123,7 +997,7 @@ struct SimpleLocationRowView: View {
 
 // MARK: - Location Permission View  
 struct LocationPermissionView: View {
-    @EnvironmentObject private var locationManager: LocationManager
+    @EnvironmentObject private var locationManager: AnyLocationManager
     
     var body: some View {
         VStack(spacing: 40) {
@@ -1260,7 +1134,6 @@ struct LocationPermissionView: View {
 
 #Preview {
     ContentView()
-        .environmentObject(LocationManager())
-        .environmentObject(NotificationManager())
+        .environmentObject(ServiceLocator.locationManager)
         .environmentObject(ThemeManager())
 }

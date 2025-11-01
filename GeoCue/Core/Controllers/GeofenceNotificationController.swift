@@ -6,9 +6,7 @@ final class GeofenceNotificationController {
     
     // MARK: - Constants
     
-    private let minimumAwayTime: TimeInterval = 10 * 60 // 10 minutes
-    private let safetyNetInterval: TimeInterval = 4 * 60 * 60 // 4 hours
-    private let maxDailyNotifications = 10 // Prevent excessive notifications
+    // Simplified policy: no cooldowns, no daily limits, no away-time
     
     // MARK: - Storage
     
@@ -37,52 +35,9 @@ final class GeofenceNotificationController {
             return false
         }
         
-        // Get or create notification state for this location
-        var state = getNotificationState(for: location.id)
-        
-        // Update counters and check daily limits
-        state.updateCounters()
-        
-        // Safety check: prevent excessive daily notifications
-        if state.dailyNotificationCount >= maxDailyNotifications {
-            print("🚫 Daily notification limit reached for \(location.name) (\(state.dailyNotificationCount)/\(maxDailyNotifications))")
-            saveNotificationState(state, for: location.id)
-            return false
-        }
-        
-        // Apply notification logic based on the event and location settings
-        let shouldSendNotification = evaluateNotificationRules(
-            state: state, 
-            location: location, 
-            event: event
-        )
-        
-        if shouldSendNotification {
-            // Update state with the event
-            switch event {
-            case .entry:
-                state.recordEntry()
-            case .exit:
-                state.recordExit()
-            }
-            
-            print("✅ Notification approved for \(location.name) - \(event.displayName)")
-        } else {
-            // Still record the event even if we don't notify
-            switch event {
-            case .entry:
-                state.recordEntry()
-            case .exit:
-                state.recordExit()
-            }
-            
-            print("🔕 Notification suppressed for \(location.name) - \(event.displayName)")
-        }
-        
-        // Save the updated state
-        saveNotificationState(state, for: location.id)
-        
-        return shouldSendNotification
+        // Simplified rule: if enabled and event type allowed, allow notification
+        print("✅ Notification approved (simplified policy) for \(location.name) - \(event.displayName)")
+        return true
     }
     
     /// Records that a notification was actually sent
@@ -123,47 +78,7 @@ final class GeofenceNotificationController {
         location: GeofenceLocation, 
         event: GeofenceEvent
     ) -> Bool {
-        
-        // Rule 1: First time notification - always allow
-        guard let lastNotification = state.lastNotificationTime else {
-            print("📍 First notification for \(location.name) - allowing")
-            return true
-        }
-        
-        let timeSinceLastNotification = Date().timeIntervalSince(lastNotification)
-        
-        // Rule 2: Safety Net - if it's been >4 hours, always notify
-        if timeSinceLastNotification > safetyNetInterval {
-            print("🛡️ Safety net triggered for \(location.name) (>4 hours)")
-            return true
-        }
-        
-        // Rule 3: Check cooldown period based on notification mode
-        let cooldownPeriod = location.notificationMode.cooldownPeriod
-        if timeSinceLastNotification < cooldownPeriod {
-            let remainingTime = cooldownPeriod - timeSinceLastNotification
-            print("⏰ Cooldown active for \(location.name) (\(Int(remainingTime/60)) minutes remaining)")
-            return false
-        }
-        
-        // Rule 4: For entries, check if user was actually away
-        if event == .entry {
-            if let lastExit = state.lastExitTime {
-                let timeSinceExit = Date().timeIntervalSince(lastExit)
-                if timeSinceExit < minimumAwayTime {
-                    print("🚪 User barely left \(location.name) (\(Int(timeSinceExit/60)) min), suppressing entry notification")
-                    return false
-                }
-            }
-        }
-        
-        // Rule 5: Special handling for once-daily mode
-        if location.notificationMode == .onceDaily && state.dailyNotificationCount > 0 {
-            print("📅 Once-daily mode: already notified today for \(location.name)")
-            return false
-        }
-        
-        // All rules passed
+        // With simplified policy, always allow when called
         return true
     }
     
